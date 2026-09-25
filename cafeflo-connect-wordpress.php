@@ -2,7 +2,7 @@
 /**
  * Plugin Name: CafeFlo Connect for WordPress
  * Description: Secure WordPress/WooCommerce integration boundary for the CafeFlo/FloCafe local bridge.
- * Version: 0.4.1
+ * Version: 0.5.0
  * Requires at least: 6.6
  * Requires PHP: 7.4
  * Requires Plugins: woocommerce
