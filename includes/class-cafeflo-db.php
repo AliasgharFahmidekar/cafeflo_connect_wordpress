@@ -3,7 +3,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class CafeFlo_DB {
-    const DB_VERSION = '3';
+    const DB_VERSION = '4';
 
     public static function table( $name ) {
         global $wpdb;
@@ -49,6 +49,7 @@ final class CafeFlo_DB {
         dbDelta( "CREATE TABLE {$claims} (
             order_id bigint(20) unsigned NOT NULL,
             claim_id char(36) NOT NULL,
+            bridge_id varchar(191) NOT NULL DEFAULT '',
             claimed_at datetime NOT NULL,
             PRIMARY KEY (order_id), UNIQUE KEY claim_key (claim_id), KEY claimed_at_idx (claimed_at)
         ) {$charset};" );
@@ -63,6 +64,13 @@ final class CafeFlo_DB {
         if ( false === get_option( 'cafeflo_online_ordering_open', false ) ) add_option( 'cafeflo_online_ordering_open', '1', '', false );
         if ( false === get_option( 'cafeflo_bridge_api_key', false ) ) add_option( 'cafeflo_bridge_api_key', wp_generate_password( 64, true, true ), '', false );
         if ( false === get_option( 'cafeflo_site_id', false ) ) add_option( 'cafeflo_site_id', wp_generate_uuid4(), '', false );
+        if ( '4' === self::DB_VERSION ) {
+            $columns = $wpdb->get_results( 'SHOW COLUMNS FROM ' . self::table( 'order_claims' ), ARRAY_A );
+            $has_bridge_id = false;
+            foreach ( $columns as $column ) if ( 'bridge_id' === $column['Field'] ) $has_bridge_id = true;
+            if ( ! $has_bridge_id ) $wpdb->query( 'ALTER TABLE ' . self::table( 'order_claims' ) . " ADD COLUMN bridge_id varchar(191) NOT NULL DEFAULT '' AFTER claim_id" );
+            $wpdb->query( 'ALTER TABLE ' . self::table( 'order_claims' ) . ' ADD KEY bridge_id_idx (bridge_id)' );
+        }
         update_option( 'cafeflo_db_version', self::DB_VERSION, false );
         flush_rewrite_rules( false );
     }
