@@ -63,13 +63,20 @@ final class CafeFlo_REST {
     }
 
     public static function health() {
+        $state = get_option( 'cafeflo_flocafe_store_state', array() );
         return rest_ensure_response( array(
+            'ok' => true,
             'status' => 'ok',
             'site_id' => (string) get_option( 'cafeflo_site_id', '' ),
+            'api_version' => '1',
+            'online_ordering_enabled' => '1' === get_option( 'cafeflo_online_ordering_enabled', '0' ),
+            'online_ordering_open' => '1' === get_option( 'cafeflo_online_ordering_open', '0' ),
             'bridge_connected' => CafeFlo_Orders::bridge_fresh(),
             'catalog_revision' => (int) get_option( 'cafeflo_last_flocafe_revision', 0 ),
             'catalog_synced' => '1' === get_option( 'cafeflo_catalog_synced', '0' ),
+            'server_time' => gmdate( 'c' ),
             'timestamp' => time(),
+            'currency' => isset( $state['currency'] ) && $state['currency'] ? $state['currency'] : ( function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : '' ),
         ) );
     }
 
@@ -141,9 +148,13 @@ final class CafeFlo_REST {
         return rest_ensure_response( array(
             'online_ordering_enabled' => '1' === get_option( 'cafeflo_online_ordering_enabled', '0' ),
             'online_ordering_open' => '1' === get_option( 'cafeflo_online_ordering_open', '0' ),
+            'bridge_connected' => CafeFlo_Orders::bridge_fresh(),
+            'catalog_revision' => (int) get_option( 'cafeflo_last_flocafe_revision', 0 ),
+            'currency' => isset( $state['currency'] ) && $state['currency'] ? $state['currency'] : ( function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : '' ),
             'fresh' => CafeFlo_Orders::flocafe_store_fresh(),
             'received_at' => (int) get_option( 'cafeflo_flocafe_store_state_received_at', 0 ),
             'state' => $state,
+            'timestamp' => gmdate( 'c' ),
         ) );
     }
 
