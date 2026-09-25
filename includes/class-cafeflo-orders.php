@@ -108,7 +108,6 @@ final class CafeFlo_Orders {
             'order' => 'ASC',
             'type' => 'shop_order',
             'return' => 'objects',
-            'status' => array_keys( wc_get_order_statuses() ),
             'meta_query' => array(
                 array( 'key' => '_cafeflo_online_order', 'value' => '1' ),
                 array( 'key' => '_cafeflo_sync_status', 'value' => 'pending' ),
@@ -120,9 +119,7 @@ final class CafeFlo_Orders {
             if ( ! $order->is_paid() || ! self::is_online_order( $order ) ) continue;
             $payload = self::order_payload( $order );
             if ( is_wp_error( $payload ) ) {
-                $order->update_meta_data( '_cafeflo_sync_status', 'failed' );
-                $order->update_meta_data( '_cafeflo_last_error', $payload->get_error_message() );
-                $order->save();
+                self::handle_permanent_failure( $order, $payload->get_error_message() );
                 continue;
             }
             $result[] = $payload;
@@ -266,6 +263,10 @@ final class CafeFlo_Orders {
 
         $retryable = ! empty( $payload['retryable'] );
         $message = isset( $payload['error'] ) ? sanitize_text_field( (string) $payload['error'] ) : 'Bridge transfer failed.';
+        $claim_id = isset( $payload['claim_id'] ) ? sanitize_text_field( (string) $payload['claim_id'] ) : '';
+        if ( '' === $claim_id || ! self::valid_claim( $order_id, $claim_id ) ) {
+            return new WP_Error( 'cafeflo_claim_mismatch', 'A valid current claim_id is required to record a transfer failure.', array( 'status' => 409 ) );
+        }
         $order->update_meta_data( '_cafeflo_last_error', $message );
 
         if ( $retryable ) {
@@ -349,11 +350,25 @@ final class CafeFlo_Orders {
         $mapped = $map[ $status ];
         $order->update_meta_data( '_cafeflo_sync_status', $status );
         $order->update_meta_data( '_cafeflo_last_status_at', current_time( 'mysql', true ) );
-        if ( 'cancelled' === $mapped && $order->is_paid() ) {
-            $order->update_meta_data( '_cafeflo_last_error', 'FloCafe reported cancellation. Payment handling requires payment-gateway/manual reconciliation.' );
-        }
-        if ( $order->get_status() !== $mapped ) {
-            $order->set_status( $mapped );
+        if ( 'cancelled' === $mapped && $order->is_paid() && 'refunded' !== $order->get_status() ) {
+            $refund_result = wc_create_refund( array(
+                'amount' => max( 0, $order->get_total() - (float) $order->get_total_refunded() ),
+                'reason' => 'FloCafe cancelled online order ' . $flocafe_id,
+                'order_id' => $order->get_id(),
+                'refund_payment' => true,
+                'restock_items' => false,
+            ) );
+            if ( is_wp_error( $refund_result ) ) {
+                $order->update_meta_data( '_cafeflo_sync_status', 'manual_review' );
+                $order->update_meta_data( '_cafeflo_last_error', 'FloCafe cancelled the order but payment refund failed: ' . $refund_result->get_error_message() );
+                $order->set_status( 'on-hold' );
+                $order->save();
+                return new WP_Error( 'cafeflo_cancel_refund_failed', 'FloCafe cancelled the order but its payment refund failed; manual review is required.', array( 'status' => 502 ) );
+            }
+            $order->update_meta_data( '_cafeflo_sync_status', 'cancelled' );
+            $order->set_status( 'refunded' );
+        } else {
+            if ( $order->get_status() !== $mapped ) $order->set_status( $mapped );
         }
         $order->save();
 
