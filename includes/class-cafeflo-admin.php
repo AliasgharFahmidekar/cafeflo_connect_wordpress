@@ -57,7 +57,7 @@ final class CafeFlo_Admin {
                     </tr>
                     <tr>
                         <th scope="row"><label for="cafeflo_bridge_api_key">Bridge API key</label></th>
-                        <td><input class="regular-text code" id="cafeflo_bridge_api_key" name="cafeflo_bridge_api_key" type="password" autocomplete="new-password" value="" /></td>
+                        <td><input class="regular-text code" id="cafeflo_bridge_api_key" name="cafeflo_bridge_api_key" type="text" autocomplete="off" value="<?php echo esc_attr( get_option( 'cafeflo_bridge_api_key', '' ) ); ?>" /><p class="description">This shared secret is used only by the Bridge. Store it securely. It is shown only to users who can manage WooCommerce.</p></td>
                     </tr>
                     <tr><th scope="row">FloCafe online ordering</th><td><strong><?php echo '1' === get_option( 'cafeflo_online_ordering_enabled', '0' ) ? 'Enabled' : 'Disabled'; ?></strong> / <strong><?php echo '1' === get_option( 'cafeflo_online_ordering_open', '0' ) ? 'Open' : 'Closed'; ?></strong><p class="description">These values are controlled by FloCafe and refreshed by the Bridge. They are not editable here.</p></td></tr>
                 </table>
