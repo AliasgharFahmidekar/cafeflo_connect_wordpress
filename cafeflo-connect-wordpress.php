@@ -13,7 +13,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CAFEFLO_CONNECT_VERSION', '0.4.1' );
+define( 'CAFEFLO_CONNECT_VERSION', '0.5.0' );
 define( 'CAFEFLO_CONNECT_FILE', __FILE__ );
 define( 'CAFEFLO_CONNECT_DIR', plugin_dir_path( __FILE__ ) );
 
