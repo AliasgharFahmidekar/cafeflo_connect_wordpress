@@ -94,8 +94,10 @@ final class CafeFlo_DB {
             "UPDATE {$wpdb->options} SET option_value = CAST(option_value AS UNSIGNED) + 1 WHERE option_name = %s",
             $option
         ) );
+        wp_cache_delete( $option, 'options' );
         if ( 1 !== (int) $updated ) {
             add_option( $option, 1, '', false );
+            wp_cache_delete( $option, 'options' );
             return (int) get_option( $option, 1 );
         }
         return (int) get_option( $option, 0 );
