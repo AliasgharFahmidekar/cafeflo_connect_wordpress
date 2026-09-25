@@ -329,9 +329,16 @@ final class CafeFlo_Orders {
         $order = wc_get_order( $order_id );
         if ( ! $order || ! self::is_online_order( $order ) ) return new WP_Error( 'cafeflo_order_not_found', 'Online order not found.', array( 'status' => 404 ) );
         $flocafe_id = sanitize_text_field( (string) ( $payload['flocafe_order_id'] ?? '' ) );
-        $status = strtolower( sanitize_text_field( (string) ( $payload['status'] ?? '' ) ) );
+        $source_status = strtolower( sanitize_text_field( (string) ( $payload['flocafe_status'] ?? $payload['status'] ?? '' ) ) );
+        $aliases = array(
+            'waiting-for-cafe' => 'pending',
+            'waiting-cafe' => 'pending',
+            'received-by-cafe' => 'received',
+            'received-cafe' => 'received',
+        );
+        $source_status = isset( $aliases[ $source_status ] ) ? $aliases[ $source_status ] : $source_status;
         $known = array( 'pending', 'accepted', 'received', 'preparing', 'ready', 'completed', 'cancelled' );
-        if ( '' === $flocafe_id || '' === $status || ! in_array( $status, $known, true ) ) {
+        if ( '' === $flocafe_id || '' === $source_status || ! in_array( $source_status, $known, true ) ) {
             return new WP_Error( 'cafeflo_unknown_flocafe_status', 'Unknown FloCafe order status.', array( 'status' => 422 ) );
         }
         if ( $order->get_meta( '_cafeflo_order_id', true ) !== $flocafe_id ) {
@@ -347,8 +354,9 @@ final class CafeFlo_Orders {
             'completed' => 'completed',
             'cancelled' => 'cancelled',
         );
-        $mapped = $map[ $status ];
-        $order->update_meta_data( '_cafeflo_sync_status', $status );
+        $mapped = $map[ $source_status ];
+        $order->update_meta_data( '_cafeflo_sync_status', $source_status );
+        $order->update_meta_data( '_cafeflo_flocafe_status', $source_status );
         $order->update_meta_data( '_cafeflo_last_status_at', current_time( 'mysql', true ) );
         if ( 'cancelled' === $mapped && $order->is_paid() && 'refunded' !== $order->get_status() ) {
             $refund_result = wc_create_refund( array(
