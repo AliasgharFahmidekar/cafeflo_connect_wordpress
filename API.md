@@ -30,3 +30,15 @@ Authentication: `X-CafeFlo-Bridge-Key`, `X-FloCafe-Bridge-Key`, `X-FloCafe-Integ
 - Permanent paid transfer failure attempts a real gateway refund with no item restock; refund failure puts the order on hold for manual review.
 - FloCafe cancellation of a paid order attempts a gateway refund with no item restock; refund failure puts the order on hold.
 - Checkout is rejected while Bridge/FloCafe heartbeats are stale or FloCafe reports online ordering disabled/closed. The menu may remain visible.
+
+
+### Order status payload
+
+```json
+{
+  "flocafe_order_id": "123",
+  "flocafe_status": "preparing",
+  "status": "preparing"
+}
+```
+`flocafe_status` is canonical. The plugin also accepts historical mapped values such as `waiting-cafe`, `waiting-for-cafe`, `received-cafe` and `received-by-cafe`.
