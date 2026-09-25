@@ -8,6 +8,7 @@ final class CafeFlo_Orders {
     public static function boot() {
         add_action( 'woocommerce_payment_complete', array( __CLASS__, 'queue_paid_order' ) );
         add_action( 'woocommerce_order_status_processing', array( __CLASS__, 'queue_paid_order' ) );
+        add_action( 'woocommerce_checkout_order_created', array( __CLASS__, 'mark_online_order' ), 20, 1 );
         add_action( 'woocommerce_check_cart_items', array( __CLASS__, 'guard_checkout' ) );
         add_filter( 'woocommerce_add_to_cart_validation', array( __CLASS__, 'guard_add_to_cart' ), 10, 3 );
         add_action( 'init', array( __CLASS__, 'register_statuses' ) );
@@ -41,6 +42,22 @@ final class CafeFlo_Orders {
             'wc-ready' => 'Ready',
         );
         return array_slice( $statuses, 0, 2, true ) + $custom + array_slice( $statuses, 2, null, true );
+    }
+
+    public static function mark_online_order( $order ) {
+        if ( ! $order instanceof WC_Order ) return;
+        $items = $order->get_items( 'line_item' );
+        if ( empty( $items ) ) return;
+        foreach ( $items as $item ) {
+            $product = $item->get_product();
+            if ( ! $product || '' === (string) $product->get_meta( '_cafeflo_product_id', true ) ) {
+                return;
+            }
+        }
+        $order->update_meta_data( '_cafeflo_online_order', '1' );
+        $order->update_meta_data( '_cafeflo_external_id', (string) $order->get_id() );
+        $order->update_meta_data( '_cafeflo_sync_status', 'pending' );
+        $order->save();
     }
 
     public static function queue_paid_order( $order_id ) {
@@ -97,6 +114,16 @@ final class CafeFlo_Orders {
         if ( is_admin() && ! wp_doing_ajax() ) return;
         if ( ! self::checkout_ready() && WC()->cart && ! WC()->cart->is_empty() ) {
             wc_add_notice( 'Online ordering is temporarily unavailable because the cafe connection is offline or closed.', 'error' );
+            return;
+        }
+        if ( WC()->cart && ! WC()->cart->is_empty() ) {
+            foreach ( WC()->cart->get_cart() as $cart_item ) {
+                $product = isset( $cart_item['data'] ) ? $cart_item['data'] : false;
+                if ( ! $product || '' === (string) $product->get_meta( '_cafeflo_product_id', true ) ) {
+                    wc_add_notice( 'This cart contains an item that is not connected to FloCafe. Please remove it before ordering.', 'error' );
+                    break;
+                }
+            }
         }
     }
 
@@ -136,8 +163,13 @@ final class CafeFlo_Orders {
             if ( '' === $flocafe_id ) return new WP_Error( 'cafeflo_unmapped_product', 'An order contains a product that is not mapped to FloCafe.', array( 'status' => 422 ) );
 
             $items[] = array(
-                'product_id' => $flocafe_id,
+                'product_id' => (int) $product->get_id(),
+                'flocafe_product_id' => $flocafe_id,
                 'quantity' => (float) $item->get_quantity(),
+                'name' => $item->get_name(),
+                'subtotal' => (float) $item->get_subtotal(),
+                'total' => (float) $item->get_total(),
+                'meta' => array(),
                 'special_instructions' => sanitize_textarea_field( (string) $item->get_meta( '_cafeflo_item_note', true ) ),
             );
         }
@@ -152,6 +184,13 @@ final class CafeFlo_Orders {
 
         return array(
             'wordpress_order_id' => (int) $order->get_id(),
+            'status' => $order->get_status(),
+            'currency' => $order->get_currency(),
+            'total' => (float) $order->get_total(),
+            'subtotal' => (float) $order->get_subtotal(),
+            'tax_total' => (float) $order->get_total_tax(),
+            'shipping_total' => (float) $order->get_shipping_total(),
+            'discount_total' => (float) $order->get_discount_total(),
             'external_order_id' => (string) ( $order->get_meta( '_cafeflo_external_id', true ) ?: $order->get_id() ),
             'type' => 'online',
             'online_platform' => 'wordpress',
@@ -179,6 +218,10 @@ final class CafeFlo_Orders {
                 'postcode' => $order->get_shipping_postcode(),
                 'country' => $order->get_shipping_country(),
             ),
+            'customer_note' => sanitize_textarea_field( (string) $order->get_customer_note() ),
+            'payment_method' => $order->get_payment_method() ?: null,
+            'note' => sanitize_textarea_field( (string) $order->get_customer_note() ),
+            'created_at' => $order->get_date_created() ? $order->get_date_created()->date( DATE_ATOM ) : null,
             'special_instructions' => sanitize_textarea_field( (string) $order->get_customer_note() ),
         );
     }
