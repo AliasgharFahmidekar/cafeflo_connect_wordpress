@@ -327,11 +327,24 @@ final class CafeFlo_Orders {
     }
 
     private static function handle_permanent_failure( $order, $message ) {
-        if ( ! $order->is_paid() || 'refunded' === $order->get_status() ) {
+        global $wpdb;
+        $claims_table = CafeFlo_DB::table( 'order_claims' );
+
+        if ( 'refunded' === $order->get_status() || $order->get_total_refunded() >= $order->get_total() ) {
+            $order->update_meta_data( '_cafeflo_failure_refunded', '1' );
+            $order->update_meta_data( '_cafeflo_sync_status', 'failed_permanent' );
+            $order->update_meta_data( '_cafeflo_claim_id', '' );
+            $order->save();
+            $wpdb->delete( $claims_table, array( 'order_id' => (int) $order->get_id() ), array( '%d' ) );
+            return array( 'ok' => true, 'action' => 'already_refunded' );
+        }
+
+        if ( ! $order->is_paid() ) {
             $order->update_meta_data( '_cafeflo_sync_status', 'failed_permanent' );
             $order->update_meta_data( '_cafeflo_claim_id', '' );
             $order->set_status( 'cancelled' );
             $order->save();
+            $wpdb->delete( $claims_table, array( 'order_id' => (int) $order->get_id() ), array( '%d' ) );
             return array( 'ok' => true, 'action' => 'cancelled' );
         }
 
@@ -343,7 +356,7 @@ final class CafeFlo_Orders {
         }
 
         $refund = wc_create_refund( array(
-            'amount' => $order->get_total(),
+            'amount' => max( 0, $order->get_total() - (float) $order->get_total_refunded() ),
             'reason' => 'CafeFlo Bridge permanent transfer failure: ' . $message,
             'order_id' => $order->get_id(),
             'refund_payment' => true,
@@ -363,8 +376,7 @@ final class CafeFlo_Orders {
         $order->update_meta_data( '_cafeflo_claim_id', '' );
         $order->set_status( 'refunded' );
         $order->save();
-        global $wpdb;
-        $wpdb->delete( CafeFlo_DB::table( 'order_claims' ), array( 'order_id' => (int) $order->get_id() ), array( '%d' ) );
+        $wpdb->delete( $claims_table, array( 'order_id' => (int) $order->get_id() ), array( '%d' ) );
         return array( 'ok' => true, 'action' => 'refunded' );
     }
 
@@ -401,23 +413,33 @@ final class CafeFlo_Orders {
         $order->update_meta_data( '_cafeflo_sync_status', $source_status );
         $order->update_meta_data( '_cafeflo_flocafe_status', $source_status );
         $order->update_meta_data( '_cafeflo_last_status_at', current_time( 'mysql', true ) );
-        if ( 'cancelled' === $mapped && $order->is_paid() && 'refunded' !== $order->get_status() ) {
-            $refund_result = wc_create_refund( array(
-                'amount' => max( 0, $order->get_total() - (float) $order->get_total_refunded() ),
-                'reason' => 'FloCafe cancelled online order ' . $flocafe_id,
-                'order_id' => $order->get_id(),
-                'refund_payment' => true,
-                'restock_items' => false,
-            ) );
-            if ( is_wp_error( $refund_result ) ) {
-                $order->update_meta_data( '_cafeflo_sync_status', 'manual_review' );
-                $order->update_meta_data( '_cafeflo_last_error', 'FloCafe cancelled the order but payment refund failed: ' . $refund_result->get_error_message() );
-                $order->set_status( 'on-hold' );
-                $order->save();
-                return new WP_Error( 'cafeflo_cancel_refund_failed', 'FloCafe cancelled the order but its payment refund failed; manual review is required.', array( 'status' => 502 ) );
+        if ( 'cancelled' === $mapped ) {
+            if ( 'refunded' === $order->get_status() || $order->get_total_refunded() >= $order->get_total() ) {
+                $order->update_meta_data( '_cafeflo_sync_status', 'cancelled' );
+                $order->update_meta_data( '_cafeflo_flocafe_status', 'cancelled' );
+            } elseif ( $order->is_paid() ) {
+                $refund_result = wc_create_refund( array(
+                    'amount' => max( 0, $order->get_total() - (float) $order->get_total_refunded() ),
+                    'reason' => 'FloCafe cancelled online order ' . $flocafe_id,
+                    'order_id' => $order->get_id(),
+                    'refund_payment' => true,
+                    'restock_items' => false,
+                ) );
+                if ( is_wp_error( $refund_result ) ) {
+                    $order->update_meta_data( '_cafeflo_sync_status', 'manual_review' );
+                    $order->update_meta_data( '_cafeflo_last_error', 'FloCafe cancelled the order but payment refund failed: ' . $refund_result->get_error_message() );
+                    $order->set_status( 'on-hold' );
+                    $order->save();
+                    return new WP_Error( 'cafeflo_cancel_refund_failed', 'FloCafe cancelled the order but its payment refund failed; manual review is required.', array( 'status' => 502 ) );
+                }
+                $order->update_meta_data( '_cafeflo_sync_status', 'cancelled' );
+                $order->update_meta_data( '_cafeflo_flocafe_status', 'cancelled' );
+                $order->set_status( 'refunded' );
+            } else {
+                $order->update_meta_data( '_cafeflo_sync_status', 'cancelled' );
+                $order->update_meta_data( '_cafeflo_flocafe_status', 'cancelled' );
+                $order->set_status( 'cancelled' );
             }
-            $order->update_meta_data( '_cafeflo_sync_status', 'cancelled' );
-            $order->set_status( 'refunded' );
         } else {
             if ( $order->get_status() !== $mapped ) $order->set_status( $mapped );
         }
