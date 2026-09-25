@@ -69,7 +69,10 @@ final class CafeFlo_DB {
             $has_bridge_id = false;
             foreach ( $columns as $column ) if ( 'bridge_id' === $column['Field'] ) $has_bridge_id = true;
             if ( ! $has_bridge_id ) $wpdb->query( 'ALTER TABLE ' . self::table( 'order_claims' ) . " ADD COLUMN bridge_id varchar(191) NOT NULL DEFAULT '' AFTER claim_id" );
-            $wpdb->query( 'ALTER TABLE ' . self::table( 'order_claims' ) . ' ADD KEY bridge_id_idx (bridge_id)' );
+            $indexes = $wpdb->get_results( 'SHOW INDEX FROM ' . self::table( 'order_claims' ), ARRAY_A );
+            $has_bridge_index = false;
+            foreach ( $indexes as $index ) if ( 'bridge_id_idx' === $index['Key_name'] ) $has_bridge_index = true;
+            if ( ! $has_bridge_index ) $wpdb->query( 'ALTER TABLE ' . self::table( 'order_claims' ) . ' ADD KEY bridge_id_idx (bridge_id)' );
         }
         update_option( 'cafeflo_db_version', self::DB_VERSION, false );
         flush_rewrite_rules( false );
