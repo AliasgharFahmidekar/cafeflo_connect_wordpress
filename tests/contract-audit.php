@@ -22,7 +22,7 @@ foreach ( $files as $file ) $source[ $file ] = (string) file_get_contents( $root
 
 $checks = array(
     'REST namespace' => strpos( $source['includes/class-cafeflo-rest.php'], "const NS = 'flocafe/v1'" ) !== false,
-    'REST auth callbacks' => substr_count( $source['includes/class-cafeflo-rest.php'], "permission_callback" ) >= 7,
+    'REST auth callbacks' => substr_count( $source['includes/class-cafeflo-rest.php'], 'self::args()' ) >= 7,
     'Bridge heartbeat persistence' => strpos( $source['includes/class-cafeflo-rest.php'], "cafeflo_bridge_last_heartbeat" ) !== false,
     'FloCafe store freshness persistence' => strpos( $source['includes/class-cafeflo-rest.php'], "cafeflo_flocafe_store_state_received_at" ) !== false,
     'Pending order limit is bounded' => strpos( $source['includes/class-cafeflo-orders.php'], "min( 50" ) !== false && strpos( $source['includes/class-cafeflo-orders.php'], "limit" ) !== false,
