@@ -99,7 +99,14 @@ final class CafeFlo_Catalog {
 
     private static function current_mappings() {
         global $wpdb;
-        $rows = $wpdb->get_results( 'SELECT entity_type, flocafe_id, wp_id FROM ' . CafeFlo_DB::table( 'mappings' ), ARRAY_A );
+        $source = CafeFlo_DB::current_source_instance_id();
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                'SELECT entity_type, flocafe_id, wp_id FROM ' . CafeFlo_DB::table( 'mappings' ) . ' WHERE source_instance_id=%s',
+                $source
+            ),
+            ARRAY_A
+        );
         $products = array();
         $categories = array();
         foreach ( $rows as $row ) {
@@ -267,7 +274,14 @@ final class CafeFlo_Catalog {
 
     private static function deactivate_missing_managed_products( $seen ) {
         global $wpdb;
-        $rows = $wpdb->get_results( 'SELECT flocafe_id, wp_id FROM ' . CafeFlo_DB::table( 'mappings' ) . " WHERE entity_type='product'", ARRAY_A );
+        $source = CafeFlo_DB::current_source_instance_id();
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                'SELECT flocafe_id, wp_id FROM ' . CafeFlo_DB::table( 'mappings' ) . " WHERE entity_type='product' AND source_instance_id=%s",
+                $source
+            ),
+            ARRAY_A
+        );
         foreach ( $rows as $row ) {
             if ( isset( $seen[(string) $row['flocafe_id']] ) ) continue;
             $product = wc_get_product( (int) $row['wp_id'] );
@@ -285,7 +299,14 @@ final class CafeFlo_Catalog {
         $seen = array();
         foreach ( $categories as $category ) if ( isset( $category['id'] ) ) $seen[(string) $category['id']] = true;
         global $wpdb;
-        $rows = $wpdb->get_results( 'SELECT flocafe_id, wp_id FROM ' . CafeFlo_DB::table( 'mappings' ) . " WHERE entity_type='category'", ARRAY_A );
+        $source = CafeFlo_DB::current_source_instance_id();
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                'SELECT flocafe_id, wp_id FROM ' . CafeFlo_DB::table( 'mappings' ) . " WHERE entity_type='category' AND source_instance_id=%s",
+                $source
+            ),
+            ARRAY_A
+        );
         foreach ( $rows as $row ) {
             if ( isset( $seen[(string) $row['flocafe_id']] ) ) continue;
             if ( get_term( (int) $row['wp_id'], 'product_cat' ) ) update_term_meta( (int) $row['wp_id'], '_cafeflo_active', '0' );
@@ -325,7 +346,14 @@ final class CafeFlo_Catalog {
 
         global $wpdb;
         $products = array();
-        $rows = $wpdb->get_results( 'SELECT flocafe_id, wp_id FROM ' . CafeFlo_DB::table( 'mappings' ) . " WHERE entity_type='product' ORDER BY wp_id ASC", ARRAY_A );
+        $source = CafeFlo_DB::current_source_instance_id();
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                'SELECT flocafe_id, wp_id FROM ' . CafeFlo_DB::table( 'mappings' ) . " WHERE entity_type='product' AND source_instance_id=%s ORDER BY wp_id ASC",
+                $source
+            ),
+            ARRAY_A
+        );
         foreach ( $rows as $row ) {
             $product = wc_get_product( (int) $row['wp_id'] );
             if ( ! $product ) continue;
