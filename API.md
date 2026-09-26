@@ -19,7 +19,7 @@ Authentication: `X-CafeFlo-Bridge-Key`, `X-FloCafe-Bridge-Key`, `X-FloCafe-Integ
 
 ## Invariants
 
-- FloCafe IDs are immutable identity keys. Product or category names never identify a mapping.
+- FloCafe IDs are immutable identity keys within the source instance. Source instance ID + FloCafe ID identify catalog mappings; product or category names never identify a mapping.
 - Source FloCafe revision is distinct from WordPress-local catalog-change revision.
 - `catalog/sync` rejects stale revisions and is idempotent for a revision already applied; it also returns current mappings so a restarted Bridge can recover them.
 - Full snapshots deactivate mapped products missing from the snapshot and mark missing mapped categories inactive. Nothing is hard-deleted by catalog sync.
@@ -42,3 +42,5 @@ Authentication: `X-CafeFlo-Bridge-Key`, `X-FloCafe-Bridge-Key`, `X-FloCafe-Integ
 }
 ```
 `flocafe_status` is canonical. The plugin also accepts historical mapped values such as `waiting-cafe`, `waiting-for-cafe`, `received-cafe` and `received-by-cafe`.
+
+- Native FloCafe Bridge sends `source_instance_id` on catalog sync and `bridge_id` on heartbeat; WordPress persists that identity so reconnects from a different FloCafe installation cannot reuse another installation's mappings.
