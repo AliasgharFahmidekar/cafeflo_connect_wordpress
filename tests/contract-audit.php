@@ -47,6 +47,9 @@ $checks = array(
     'Woo inventory quantity is not authoritative' => strpos( $source['includes/class-cafeflo-catalog.php'], 'set_manage_stock( false )' ) !== false,
     'Checkout freshness gate' => strpos( $source['includes/class-cafeflo-orders.php'], 'cafeflo_bridge_last_heartbeat' ) !== false && strpos( $source['includes/class-cafeflo-orders.php'], 'HEARTBEAT_TTL' ) !== false,
     'Constant-time bridge auth' => strpos( $source['includes/class-cafeflo-auth.php'], 'hash_equals' ) !== false,
+    'Source instance persisted on heartbeat' => strpos( $source['includes/class-cafeflo-rest.php'], "cafeflo_source_instance_id" ) !== false && strpos( $source['includes/class-cafeflo-rest.php'], "body['bridge_id']" ) !== false,
+    'Source-scoped mapping identity' => strpos( $source['includes/class-cafeflo-db.php'], 'source_instance_id' ) !== false && strpos( $source['includes/class-cafeflo-db.php'], 'UNIQUE KEY entity_map (entity_type, source_instance_id, flocafe_id)' ) !== false,
+    'Source-scoped catalog reconciliation' => substr_count( $source['includes/class-cafeflo-catalog.php'], 'source_instance_id=%s' ) >= 3,
     'Safe DB upgrade path' => strpos( $source['includes/class-cafeflo-db.php'], 'maybe_upgrade' ) !== false && strpos( $source['cafeflo-connect-wordpress.php'], 'CafeFlo_DB::maybe_upgrade' ) !== false,
 );
 
