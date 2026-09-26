@@ -28,6 +28,23 @@ final class CafeFlo_DB {
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         $charset = $wpdb->get_charset_collate();
         $mappings = self::table( 'mappings' ); $changes = self::table( 'catalog_changes' ); $claims = self::table( 'order_claims' );
+        // v6 changes the mapping identity from (entity_type, flocafe_id)
+        // to (entity_type, source_instance_id, flocafe_id). Drop the legacy
+        // two-column unique key before dbDelta creates the new definition.
+        if ( version_compare( $current_db_version, '0', '>' ) && version_compare( $current_db_version, '6', '<' ) ) {
+            $indexes = $wpdb->get_results( 'SHOW INDEX FROM ' . self::table( 'mappings' ), ARRAY_A );
+            $legacy_entity_map = false;
+            foreach ( $indexes as $index ) {
+                if ( 'entity_map' === $index['Key_name'] && 'flocafe_id' === $index['Column_name'] ) {
+                    $legacy_entity_map = true;
+                    break;
+                }
+            }
+            if ( $legacy_entity_map ) {
+                $wpdb->query( 'ALTER TABLE ' . self::table( 'mappings' ) . ' DROP INDEX entity_map' );
+            }
+        }
+
         dbDelta( "CREATE TABLE {$mappings} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             entity_type varchar(32) NOT NULL,
@@ -68,19 +85,6 @@ final class CafeFlo_DB {
         if ( false === get_option( 'cafeflo_online_ordering_open', false ) ) add_option( 'cafeflo_online_ordering_open', '1', '', false );
         if ( false === get_option( 'cafeflo_bridge_api_key', false ) ) add_option( 'cafeflo_bridge_api_key', wp_generate_password( 64, true, true ), '', false );
         if ( false === get_option( 'cafeflo_site_id', false ) ) add_option( 'cafeflo_site_id', wp_generate_uuid4(), '', false );
-        if ( version_compare( $current_db_version, '6', '<' ) ) {
-            $columns = $wpdb->get_results( 'SHOW COLUMNS FROM ' . self::table( 'mappings' ), ARRAY_A );
-            $has_source_instance = false;
-            foreach ( $columns as $column ) if ( 'source_instance_id' === $column['Field'] ) $has_source_instance = true;
-            if ( ! $has_source_instance ) {
-                $wpdb->query( 'ALTER TABLE ' . self::table( 'mappings' ) . " ADD COLUMN source_instance_id varchar(191) NOT NULL DEFAULT '' AFTER entity_type" );
-            }
-            $indexes = $wpdb->get_results( 'SHOW INDEX FROM ' . self::table( 'mappings' ), ARRAY_A );
-            $has_entity_map = false;
-            foreach ( $indexes as $index ) if ( 'entity_map' === $index['Key_name'] ) $has_entity_map = true;
-            if ( $has_entity_map ) $wpdb->query( 'ALTER TABLE ' . self::table( 'mappings' ) . ' DROP INDEX entity_map' );
-        }
-
         if ( version_compare( $current_db_version, '4', '<' ) ) {
             $columns = $wpdb->get_results( 'SHOW COLUMNS FROM ' . self::table( 'order_claims' ), ARRAY_A );
             $has_bridge_id = false;
