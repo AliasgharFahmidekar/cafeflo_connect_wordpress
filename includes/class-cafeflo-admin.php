@@ -23,6 +23,11 @@ final class CafeFlo_Admin {
     public static function settings() {
         register_setting( 'cafeflo_connect', 'cafeflo_bridge_api_key', array( 'sanitize_callback' => array( __CLASS__, 'sanitize_key' ) ) );
         register_setting( 'cafeflo_connect', 'cafeflo_site_id', array( 'sanitize_callback' => 'sanitize_text_field' ) );
+        register_setting( 'cafeflo_connect', 'cafeflo_price_rial_to_toman', array( 'sanitize_callback' => array( __CLASS__, 'sanitize_toggle' ) ) );
+    }
+
+    public static function sanitize_toggle( $value ) {
+        return empty( $value ) ? '0' : '1';
     }
 
     public static function sanitize_key( $value ) {
@@ -59,11 +64,22 @@ final class CafeFlo_Admin {
                         <th scope="row"><label for="cafeflo_bridge_api_key">Bridge API key</label></th>
                         <td><input class="regular-text code" id="cafeflo_bridge_api_key" name="cafeflo_bridge_api_key" type="text" autocomplete="off" value="<?php echo esc_attr( get_option( 'cafeflo_bridge_api_key', '' ) ); ?>" /><p class="description">This shared secret is used only by the Bridge. Store it securely. It is shown only to users who can manage WooCommerce.</p></td>
                     </tr>
+                    <tr>
+                        <th scope="row">Price unit conversion</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="cafeflo_price_rial_to_toman" value="1" <?php checked( '1', get_option( 'cafeflo_price_rial_to_toman', '1' ) ); ?> />
+                                Convert FloCafe prices from Rial to Toman
+                            </label>
+                            <p class="description">When enabled, FloCafe prices such as 2,500,000 Rial are divided by 10 before being stored in ACF and WooCommerce, so the website uses 250,000 Toman. Disable this only if FloCafe already sends prices in Toman.</p>
+                        </td>
+                    </tr>
                     <tr><th scope="row">FloCafe online ordering</th><td><strong><?php echo '1' === get_option( 'cafeflo_online_ordering_enabled', '0' ) ? 'Enabled' : 'Disabled'; ?></strong> / <strong><?php echo '1' === get_option( 'cafeflo_online_ordering_open', '0' ) ? 'Open' : 'Closed'; ?></strong><p class="description">These values are controlled by FloCafe and refreshed by the Bridge. They are not editable here.</p></td></tr>
                 </table>
                 <?php submit_button( 'Save CafeFlo settings' ); ?>
             </form>
             <p><strong>Security:</strong> the bridge endpoint accepts only the configured secret; no WordPress login cookie or browser nonce is required for Bridge traffic.</p>
+            <p><strong>Price:</strong> FloCafe prices are treated as Rial by default and converted to Toman once at the catalog boundary. You can disable this in the setting above if the source already sends Toman.</p>
             <p><strong>ACF:</strong> catalog sync writes FloCafe product data to <code>price</code>, <code>description</code>, <code>available</code>, <code>visible</code>, and <code>product_image</code>. The <code>featured</code> field is intentionally left untouched because FloCafe does not currently provide that value.</p>
         </div>
         <?php
