@@ -238,7 +238,7 @@ final class CafeFlo_Catalog {
         // the two separate ACF fields to the website.
         $visible = $category_active && $source_active && $available;
 
-        $price = wc_format_decimal( $data['price'] );
+        // FloCafe's canonical price is Rial. When enabled, convert exactly once at\n        // the catalog boundary so WooCommerce and ACF both work in Toman.\n        $price = self::price_for_website( $data['price'] );
 
         // WooCommerce price remains authoritative for cart/order mechanics.
         // Website-facing catalog content is additionally written to ACF.
@@ -300,8 +300,34 @@ final class CafeFlo_Catalog {
         return array( 'flocafe_id' => $id, 'wp_id' => $product_id, 'changed' => true );
     }
 
+    private static function price_conversion_enabled() {
+        return '1' === get_option( 'cafeflo_price_rial_to_toman', '1' );
+    }
+
+    /**
+     * Convert the canonical FloCafe Rial price to the website's Toman price.
+     * This is the single inbound conversion boundary for catalog prices.
+     */
+    private static function price_for_website( $price ) {
+        $price = wc_format_decimal( $price );
+        if ( ! self::price_conversion_enabled() ) return $price;
+
+        return wc_format_decimal( (float) $price / 10 );
+    }
+
+    /**
+     * Convert a website Toman price back to FloCafe's canonical Rial price
+     * when a catalog snapshot is sent back through the bridge.
+     */
+    private static function price_for_flocafe( $price ) {
+        $price = wc_format_decimal( $price );
+        if ( ! self::price_conversion_enabled() ) return $price;
+
+        return wc_format_decimal( (float) $price * 10 );
+    }
+
     private static function sync_acf_product_fields( $product_id, $data, $available, $visible ) {
-        update_field( 'price', (float) wc_format_decimal( $data['price'] ), $product_id );
+        update_field( 'price', (float) self::price_for_website( $data['price'] ), $product_id );
         update_field(
             'description',
             isset( $data['description'] ) ? wp_kses_post( (string) $data['description'] ) : '',
@@ -522,7 +548,7 @@ final class CafeFlo_Catalog {
                 'category_id' => $cat_id,
                 'name' => $product->get_name(),
                 'description' => (string) $website_description,
-                'price' => (float) $website_price,
+                'price' => (float) self::price_for_flocafe( $website_price ),
                 'sku' => $product->get_sku() ?: null,
                 'image_url' => self::get_acf_product_image_url( $product->get_id() ),
                 'is_available' => (bool) $website_available,
