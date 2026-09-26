@@ -305,7 +305,9 @@ final class CafeFlo_Orders {
         if ( ! $order || ! self::is_online_order( $order ) ) return new WP_Error( 'cafeflo_order_not_found', 'Online order not found.', array( 'status' => 404 ) );
 
         $retryable = ! empty( $payload['retryable'] );
-        $message = isset( $payload['error'] ) ? sanitize_text_field( (string) $payload['error'] ) : 'Bridge transfer failed.';
+        $message = isset( $payload['error'] )
+            ? sanitize_text_field( (string) $payload['error'] )
+            : ( isset( $payload['message'] ) ? sanitize_text_field( (string) $payload['message'] ) : 'Bridge transfer failed.' );
         $claim_id = isset( $payload['claim_id'] ) ? sanitize_text_field( (string) $payload['claim_id'] ) : '';
         if ( '' === $claim_id || ! self::valid_claim( $order_id, $claim_id ) ) {
             return new WP_Error( 'cafeflo_claim_mismatch', 'A valid current claim_id is required to record a transfer failure.', array( 'status' => 409 ) );
