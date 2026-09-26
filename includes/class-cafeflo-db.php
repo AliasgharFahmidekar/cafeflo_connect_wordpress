@@ -3,7 +3,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class CafeFlo_DB {
-    const DB_VERSION = '4';
+    const DB_VERSION = '5';
 
     public static function table( $name ) {
         global $wpdb;
@@ -60,6 +60,7 @@ final class CafeFlo_DB {
         if ( false === get_option( 'cafeflo_bridge_last_heartbeat', false ) ) add_option( 'cafeflo_bridge_last_heartbeat', 0, '', false );
         if ( false === get_option( 'cafeflo_flocafe_store_state_received_at', false ) ) add_option( 'cafeflo_flocafe_store_state_received_at', 0, '', false );
         if ( false === get_option( 'cafeflo_flocafe_store_state', false ) ) add_option( 'cafeflo_flocafe_store_state', array(), '', false );
+        if ( false === get_option( 'cafeflo_source_instance_id', false ) ) add_option( 'cafeflo_source_instance_id', '', '', false );
         if ( false === get_option( 'cafeflo_online_ordering_enabled', false ) ) add_option( 'cafeflo_online_ordering_enabled', '1', '', false );
         if ( false === get_option( 'cafeflo_online_ordering_open', false ) ) add_option( 'cafeflo_online_ordering_open', '1', '', false );
         if ( false === get_option( 'cafeflo_bridge_api_key', false ) ) add_option( 'cafeflo_bridge_api_key', wp_generate_password( 64, true, true ), '', false );
