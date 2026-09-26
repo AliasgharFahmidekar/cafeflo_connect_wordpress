@@ -408,7 +408,7 @@ final class CafeFlo_Orders {
             'received-cafe' => 'received',
         );
         $source_status = isset( $aliases[ $source_status ] ) ? $aliases[ $source_status ] : $source_status;
-        $known = array( 'pending', 'accepted', 'received', 'preparing', 'ready', 'completed', 'cancelled' );
+        $known = array( 'pending', 'accepted', 'received', 'preparing', 'ready', 'served', 'completed', 'cancelled' );
         if ( '' === $flocafe_id || '' === $source_status || ! in_array( $source_status, $known, true ) ) {
             return new WP_Error( 'cafeflo_unknown_flocafe_status', 'Unknown FloCafe order status.', array( 'status' => 422 ) );
         }
@@ -422,6 +422,7 @@ final class CafeFlo_Orders {
             'received' => 'received-by-cafe',
             'preparing' => 'preparing',
             'ready' => 'ready',
+            'served' => 'completed',
             'completed' => 'completed',
             'cancelled' => 'cancelled',
         );
