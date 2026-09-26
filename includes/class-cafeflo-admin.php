@@ -64,7 +64,7 @@ final class CafeFlo_Admin {
                 <?php submit_button( 'Save CafeFlo settings' ); ?>
             </form>
             <p><strong>Security:</strong> the bridge endpoint accepts only the configured secret; no WordPress login cookie or browser nonce is required for Bridge traffic.</p>
-            <p><strong>ACF:</strong> this plugin deliberately does not overwrite ACF presentation fields. FloCafe controls business data; your ACF fields remain website-only.</p>
+            <p><strong>ACF:</strong> catalog sync writes FloCafe product data to <code>price</code>, <code>description</code>, <code>available</code>, <code>visible</code>, and <code>product_image</code>. The <code>featured</code> field is intentionally left untouched because FloCafe does not currently provide that value.</p>
         </div>
         <?php
     }
@@ -77,7 +77,10 @@ final class CafeFlo_Admin {
 
     public static function product_meta_box( $post ) {
         echo '<p><strong>FloCafe product ID:</strong><br><code>' . esc_html( get_post_meta( $post->ID, '_cafeflo_product_id', true ) ?: 'Not mapped' ) . '</code></p>';
-        echo '<p><strong>Availability:</strong> ' . ( '1' === get_post_meta( $post->ID, '_cafeflo_available', true ) ? 'Active' : 'Inactive' ) . '</p>';
+        $available = function_exists( 'get_field' ) ? get_field( 'available', $post->ID ) : ( '1' === get_post_meta( $post->ID, '_cafeflo_available', true ) );
+        $visible = function_exists( 'get_field' ) ? get_field( 'visible', $post->ID ) : ( '1' === get_post_meta( $post->ID, '_cafeflo_visible', true ) );
+        echo '<p><strong>Available:</strong> ' . ( $available ? 'Yes' : 'No' ) . '</p>';
+        echo '<p><strong>Visible:</strong> ' . ( $visible ? 'Yes' : 'No' ) . '</p>';
     }
 
     public static function order_meta_box( $post ) {

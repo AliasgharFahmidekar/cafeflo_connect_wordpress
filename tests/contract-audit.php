@@ -43,7 +43,15 @@ $checks = array(
     'Immutable FloCafe product mapping' => strpos( $source['includes/class-cafeflo-catalog.php'], "get_mapping( 'product'" ) !== false && strpos( $source['includes/class-cafeflo-catalog.php'], '_cafeflo_product_id' ) !== false,
     'Catalog same-revision recovery' => strpos( $source['includes/class-cafeflo-catalog.php'], 'current_mappings' ) !== false && strpos( $source['includes/class-cafeflo-catalog.php'], 'already_applied' ) !== false,
     'Full snapshot hides missing products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'deactivate_missing_managed_products' ) !== false,
-    'ACF remains presentation-only' => preg_match( '/\bupdate_field\s*\(/', $source['includes/class-cafeflo-catalog.php'] ) !== 1,
+    'ACF catalog fields are synchronized' =>
+        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'price'" ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field(\n            'description'" ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'available'" ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'visible'" ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'product_image'" ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'featured'" ) === false,
+    'Woo product price remains available for checkout compatibility' =>
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'set_price( $price )' ) !== false,
     'Woo inventory quantity is not authoritative' => strpos( $source['includes/class-cafeflo-catalog.php'], 'set_manage_stock( false )' ) !== false,
     'Checkout freshness gate' => strpos( $source['includes/class-cafeflo-orders.php'], 'cafeflo_bridge_last_heartbeat' ) !== false && strpos( $source['includes/class-cafeflo-orders.php'], 'HEARTBEAT_TTL' ) !== false,
     'Constant-time bridge auth' => strpos( $source['includes/class-cafeflo-auth.php'], 'hash_equals' ) !== false,
