@@ -91,6 +91,16 @@ final class CafeFlo_REST {
         $stored_source_instance_id = (string) get_option( 'cafeflo_source_instance_id', '' );
         $source_changed = '' !== $incoming_source_instance_id && $incoming_source_instance_id !== $stored_source_instance_id;
         if ( '' !== $incoming_source_instance_id ) {
+            if ( $source_changed && '' === $stored_source_instance_id ) {
+                global $wpdb;
+                $wpdb->query(
+                    $wpdb->prepare(
+                        'UPDATE ' . CafeFlo_DB::table( 'mappings' ) . ' SET source_instance_id=%s WHERE source_instance_id=%s',
+                        $incoming_source_instance_id,
+                        ''
+                    )
+                );
+            }
             update_option( 'cafeflo_source_instance_id', $incoming_source_instance_id, false );
         }
         if ( $source_changed ) {
