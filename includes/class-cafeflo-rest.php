@@ -73,6 +73,7 @@ final class CafeFlo_REST {
             'online_ordering_open' => '1' === get_option( 'cafeflo_online_ordering_open', '0' ),
             'bridge_connected' => CafeFlo_Orders::bridge_fresh(),
             'catalog_revision' => (int) get_option( 'cafeflo_last_flocafe_revision', 0 ),
+            'source_instance_id' => (string) get_option( 'cafeflo_source_instance_id', '' ),
             'catalog_synced' => '1' === get_option( 'cafeflo_catalog_synced', '0' ),
             'server_time' => gmdate( 'c' ),
             'timestamp' => time(),
