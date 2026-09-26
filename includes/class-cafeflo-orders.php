@@ -269,10 +269,24 @@ final class CafeFlo_Orders {
         }
         $flocafe_id = isset( $payload['flocafe_order_id'] ) ? sanitize_text_field( (string) $payload['flocafe_order_id'] ) : '';
         $claim_id = isset( $payload['claim_id'] ) ? sanitize_text_field( (string) $payload['claim_id'] ) : '';
+        $bridge_id = isset( $payload['bridge_id'] ) ? sanitize_text_field( (string) $payload['bridge_id'] ) : '';
 
         $already = (string) $order->get_meta( '_cafeflo_order_id', true );
         if ( '' !== $already ) {
             return array( 'ok' => true, 'idempotent_replay' => true, 'flocafe_order_id' => $already );
+        }
+        if ( '' === $claim_id && '' !== $bridge_id ) {
+            global $wpdb;
+            $claim_row = $wpdb->get_row(
+                $wpdb->prepare(
+                    'SELECT claim_id, bridge_id FROM ' . CafeFlo_DB::table( 'order_claims' ) . ' WHERE order_id=%d LIMIT 1',
+                    (int) $order_id
+                ),
+                ARRAY_A
+            );
+            if ( $claim_row && hash_equals( (string) $claim_row['bridge_id'], $bridge_id ) ) {
+                $claim_id = (string) $claim_row['claim_id'];
+            }
         }
         if ( '' === $claim_id || ! self::valid_claim( $order_id, $claim_id ) ) {
             return new WP_Error( 'cafeflo_claim_mismatch', 'A valid current claim_id is required for ACK.', array( 'status' => 409 ) );
