@@ -87,6 +87,17 @@ final class CafeFlo_REST {
 
         update_option( 'cafeflo_bridge_last_heartbeat', time(), false );
 
+        $incoming_source_instance_id = isset( $body['bridge_id'] ) ? sanitize_text_field( (string) $body['bridge_id'] ) : '';
+        $stored_source_instance_id = (string) get_option( 'cafeflo_source_instance_id', '' );
+        $source_changed = '' !== $incoming_source_instance_id && $incoming_source_instance_id !== $stored_source_instance_id;
+        if ( '' !== $incoming_source_instance_id ) {
+            update_option( 'cafeflo_source_instance_id', $incoming_source_instance_id, false );
+        }
+        if ( $source_changed ) {
+            update_option( 'cafeflo_last_flocafe_revision', 0, false );
+            update_option( 'cafeflo_catalog_synced', '0', false );
+        }
+
         $store = array();
         if ( isset( $body['flocafe_store'] ) && is_array( $body['flocafe_store'] ) ) {
             $store = $body['flocafe_store'];
