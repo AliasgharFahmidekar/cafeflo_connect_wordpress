@@ -1,9 +1,10 @@
 # CafeFlo Connect for WordPress
 
-Secure WordPress/WooCommerce boundary used by the local FloCafe Bridge. The plugin never connects to FloCafe SQLite directly.
+Secure WordPress/WooCommerce boundary used by the native FloCafe WordPress Bridge. The plugin never connects to FloCafe SQLite directly.
 
 ## Trust boundaries
 - FloCafe is authoritative for product identity, availability and price, and final order totals.
+- The native desktop Bridge runs inside FloCafe; a separate Bridge EXE is not required for normal operation.
 - The Bridge is the only process that crosses the Internet/WordPress ↔ local FloCafe boundary.
 - ACF and Elementor remain presentation-layer tools and are not overwritten by catalog sync.
 
@@ -21,7 +22,7 @@ Paid online orders are claimed atomically. Claim tokens are required for ACK. Re
 Checkout is allowed only while the Bridge heartbeat and FloCafe store-state heartbeat are both fresh (90 seconds) and FloCafe reports online ordering enabled/open. The menu can remain visible while checkout is disabled.
 
 ## Installation
-Activate WooCommerce, install this plugin, activate it, open **WooCommerce → CafeFlo Connect**, and copy the site ID/secret into the existing Bridge. The Bridge secret is never displayed after activation.
+Activate WooCommerce, install this plugin, activate it, open **WooCommerce → CafeFlo Connect**, and copy the Bridge API key into FloCafe Settings → WordPress / WooCommerce. The API key is stored by WordPress and is used only by the authenticated Bridge.
 
 ## Validation
 The repository includes PHP syntax linting and a static contract audit under `tests/contract-audit.php`. GitHub Actions runs the checks on PHP 7.4, 8.1 and 8.4.
