@@ -68,6 +68,7 @@ final class CafeFlo_Admin {
                         <th scope="row">Price unit conversion</th>
                         <td>
                             <label>
+                                <input type="hidden" name="cafeflo_price_rial_to_toman" value="0" />
                                 <input type="checkbox" name="cafeflo_price_rial_to_toman" value="1" <?php checked( '1', get_option( 'cafeflo_price_rial_to_toman', '1' ) ); ?> />
                                 Convert FloCafe prices from Rial to Toman
                             </label>
