@@ -238,7 +238,9 @@ final class CafeFlo_Catalog {
         // the two separate ACF fields to the website.
         $visible = $category_active && $source_active && $available;
 
-        // FloCafe's canonical price is Rial. When enabled, convert exactly once at\n        // the catalog boundary so WooCommerce and ACF both work in Toman.\n        $price = self::price_for_website( $data['price'] );
+        // FloCafe's canonical price is Rial. When enabled, convert exactly once at
+        // the catalog boundary so WooCommerce and ACF both work in Toman.
+        $price = self::price_for_website( $data['price'] );
 
         // WooCommerce price remains authoritative for cart/order mechanics.
         // Website-facing catalog content is additionally written to ACF.
