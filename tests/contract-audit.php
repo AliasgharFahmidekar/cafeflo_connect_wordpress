@@ -50,6 +50,13 @@ $checks = array(
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'visible'" ) !== false &&
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'product_image'" ) !== false &&
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'featured'" ) === false,
+    'Rial to Toman conversion is configurable' =>
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'price_for_website' ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'price_for_flocafe' ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], "cafeflo_price_rial_to_toman" ) !== false &&
+        strpos( $source['includes/class-cafeflo-admin.php'], "cafeflo_price_rial_to_toman" ) !== false,
+    'Website price is converted before ACF and WooCommerce sync' =>
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'self::price_for_website( $data[\'price\'] )' ) !== false,
     'Woo product price remains available for checkout compatibility' =>
         strpos( $source['includes/class-cafeflo-catalog.php'], 'set_price( $price )' ) !== false,
     'Woo inventory quantity is not authoritative' => strpos( $source['includes/class-cafeflo-catalog.php'], 'set_manage_stock( false )' ) !== false,
