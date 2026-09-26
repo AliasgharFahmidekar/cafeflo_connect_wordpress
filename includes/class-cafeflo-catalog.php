@@ -20,6 +20,16 @@ final class CafeFlo_Catalog {
         $revision = isset( $payload['revision'] ) ? max( 0, (int) $payload['revision'] ) : 0;
         $source_instance_id = isset( $payload['source_instance_id'] ) ? sanitize_text_field( (string) $payload['source_instance_id'] ) : '';
         $stored_source_instance_id = (string) get_option( 'cafeflo_source_instance_id', '' );
+        if ( '' !== $source_instance_id && '' === $stored_source_instance_id ) {
+            global $wpdb;
+            $wpdb->query(
+                $wpdb->prepare(
+                    'UPDATE ' . CafeFlo_DB::table( 'mappings' ) . ' SET source_instance_id=%s WHERE source_instance_id=%s',
+                    $source_instance_id,
+                    ''
+                )
+            );
+        }
         if ( '' !== $source_instance_id && '' !== $stored_source_instance_id && $source_instance_id !== $stored_source_instance_id ) {
             // A new FloCafe installation may legitimately start with a lower
             // local revision. Treat the source identity change as a new catalog
