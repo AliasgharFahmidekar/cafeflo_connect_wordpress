@@ -9,6 +9,7 @@ $files = array(
     'includes/class-cafeflo-catalog.php',
     'includes/class-cafeflo-orders.php',
     'includes/class-cafeflo-rest.php',
+    'includes/class-cafeflo-admin.php',
 );
 foreach ( $files as $file ) {
     if ( ! is_file( $root . '/' . $file ) ) {
