@@ -120,6 +120,7 @@ final class CafeFlo_REST {
             'ok' => true,
             'received_at' => time(),
             'site_id' => (string) get_option( 'cafeflo_site_id', '' ),
+            'source_instance_id' => (string) get_option( 'cafeflo_source_instance_id', '' ),
         ) );
     }
 
