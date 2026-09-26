@@ -3,7 +3,7 @@
 defined( 'ABSPATH' ) || exit;
 
 final class CafeFlo_DB {
-    const DB_VERSION = '5';
+    const DB_VERSION = '6';
 
     public static function table( $name ) {
         global $wpdb;
@@ -31,12 +31,14 @@ final class CafeFlo_DB {
         dbDelta( "CREATE TABLE {$mappings} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
             entity_type varchar(32) NOT NULL,
+            source_instance_id varchar(191) NOT NULL DEFAULT '',
             flocafe_id varchar(191) NOT NULL,
             wp_id bigint(20) unsigned NOT NULL,
             created_at datetime NOT NULL,
             updated_at datetime NOT NULL,
-            PRIMARY KEY  (id), UNIQUE KEY entity_map (entity_type, flocafe_id),
-            UNIQUE KEY wp_entity_unique (entity_type, wp_id), KEY wp_entity (entity_type, wp_id)
+            PRIMARY KEY  (id), UNIQUE KEY entity_map (entity_type, source_instance_id, flocafe_id),
+            UNIQUE KEY wp_entity_unique (entity_type, wp_id), KEY wp_entity (entity_type, wp_id),
+            KEY source_instance (source_instance_id)
         ) {$charset};" );
         dbDelta( "CREATE TABLE {$changes} (
             id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -66,6 +68,19 @@ final class CafeFlo_DB {
         if ( false === get_option( 'cafeflo_online_ordering_open', false ) ) add_option( 'cafeflo_online_ordering_open', '1', '', false );
         if ( false === get_option( 'cafeflo_bridge_api_key', false ) ) add_option( 'cafeflo_bridge_api_key', wp_generate_password( 64, true, true ), '', false );
         if ( false === get_option( 'cafeflo_site_id', false ) ) add_option( 'cafeflo_site_id', wp_generate_uuid4(), '', false );
+        if ( version_compare( $current_db_version, '6', '<' ) ) {
+            $columns = $wpdb->get_results( 'SHOW COLUMNS FROM ' . self::table( 'mappings' ), ARRAY_A );
+            $has_source_instance = false;
+            foreach ( $columns as $column ) if ( 'source_instance_id' === $column['Field'] ) $has_source_instance = true;
+            if ( ! $has_source_instance ) {
+                $wpdb->query( 'ALTER TABLE ' . self::table( 'mappings' ) . " ADD COLUMN source_instance_id varchar(191) NOT NULL DEFAULT '' AFTER entity_type" );
+            }
+            $indexes = $wpdb->get_results( 'SHOW INDEX FROM ' . self::table( 'mappings' ), ARRAY_A );
+            $has_entity_map = false;
+            foreach ( $indexes as $index ) if ( 'entity_map' === $index['Key_name'] ) $has_entity_map = true;
+            if ( $has_entity_map ) $wpdb->query( 'ALTER TABLE ' . self::table( 'mappings' ) . ' DROP INDEX entity_map' );
+        }
+
         if ( version_compare( $current_db_version, '4', '<' ) ) {
             $columns = $wpdb->get_results( 'SHOW COLUMNS FROM ' . self::table( 'order_claims' ), ARRAY_A );
             $has_bridge_id = false;
@@ -80,14 +95,71 @@ final class CafeFlo_DB {
         flush_rewrite_rules( false );
     }
 
-    public static function get_mapping( $entity_type, $flocafe_id ) { global $wpdb; return $wpdb->get_row( $wpdb->prepare("SELECT * FROM ".self::table('mappings')." WHERE entity_type=%s AND flocafe_id=%s LIMIT 1", $entity_type, (string)$flocafe_id), ARRAY_A ); }
-    public static function get_mapping_by_wp_id( $entity_type, $wp_id ) { global $wpdb; return $wpdb->get_row( $wpdb->prepare("SELECT * FROM ".self::table('mappings')." WHERE entity_type=%s AND wp_id=%d LIMIT 1", $entity_type, (int)$wp_id), ARRAY_A ); }
-    public static function upsert_mapping( $entity_type, $flocafe_id, $wp_id ) {
-        global $wpdb; $table=self::table('mappings'); $now=current_time('mysql',true); $existing=self::get_mapping($entity_type,$flocafe_id);
-        $conflict=self::get_mapping_by_wp_id($entity_type,$wp_id);
-        if($conflict && (!$existing || (int)$conflict['id']!==(int)$existing['id'])) return new WP_Error('cafeflo_mapping_conflict','The WordPress object is already mapped to another FloCafe ID.',array('status'=>409));
-        if($existing){$wpdb->update($table,array('wp_id'=>(int)$wp_id,'updated_at'=>$now),array('id'=>(int)$existing['id']),array('%d','%s'),array('%d'));return (int)$existing['id'];}
-        $ok=$wpdb->insert($table,array('entity_type'=>$entity_type,'flocafe_id'=>(string)$flocafe_id,'wp_id'=>(int)$wp_id,'created_at'=>$now,'updated_at'=>$now),array('%s','%s','%d','%s','%s')); return $ok ? (int)$wpdb->insert_id : new WP_Error('cafeflo_mapping_insert_failed','Could not store mapping.',array('status'=>500));
+    public static function current_source_instance_id() {
+        return sanitize_text_field( (string) get_option( 'cafeflo_source_instance_id', '' ) );
+    }
+
+    public static function get_mapping( $entity_type, $flocafe_id, $source_instance_id = null ) {
+        global $wpdb;
+        $source = null === $source_instance_id ? self::current_source_instance_id() : (string) $source_instance_id;
+        return $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM " . self::table( 'mappings' ) . " WHERE entity_type=%s AND source_instance_id=%s AND flocafe_id=%s LIMIT 1",
+                $entity_type,
+                $source,
+                (string) $flocafe_id
+            ),
+            ARRAY_A
+        );
+    }
+
+    public static function get_mapping_by_wp_id( $entity_type, $wp_id, $source_instance_id = null ) {
+        global $wpdb;
+        $source = null === $source_instance_id ? self::current_source_instance_id() : (string) $source_instance_id;
+        return $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM " . self::table( 'mappings' ) . " WHERE entity_type=%s AND source_instance_id=%s AND wp_id=%d LIMIT 1",
+                $entity_type,
+                $source,
+                (int) $wp_id
+            ),
+            ARRAY_A
+        );
+    }
+
+    public static function upsert_mapping( $entity_type, $flocafe_id, $wp_id, $source_instance_id = null ) {
+        global $wpdb;
+        $table = self::table( 'mappings' );
+        $now = current_time( 'mysql', true );
+        $source = null === $source_instance_id ? self::current_source_instance_id() : (string) $source_instance_id;
+        $existing = self::get_mapping( $entity_type, $flocafe_id, $source );
+        $conflict = self::get_mapping_by_wp_id( $entity_type, $wp_id, $source );
+        if ( $conflict && ( ! $existing || (int) $conflict['id'] !== (int) $existing['id'] ) ) {
+            return new WP_Error( 'cafeflo_mapping_conflict', 'The WordPress object is already mapped to another FloCafe ID in this source instance.', array( 'status' => 409 ) );
+        }
+        if ( $existing ) {
+            $wpdb->update(
+                $table,
+                array( 'wp_id' => (int) $wp_id, 'updated_at' => $now ),
+                array( 'id' => (int) $existing['id'] ),
+                array( '%d', '%s' ),
+                array( '%d' )
+            );
+            return (int) $existing['id'];
+        }
+        $ok = $wpdb->insert(
+            $table,
+            array(
+                'entity_type' => $entity_type,
+                'source_instance_id' => $source,
+                'flocafe_id' => (string) $flocafe_id,
+                'wp_id' => (int) $wp_id,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ),
+            array( '%s', '%s', '%s', '%d', '%s', '%s' )
+        );
+        return $ok ? (int) $wpdb->insert_id : new WP_Error( 'cafeflo_mapping_insert_failed', 'Could not store mapping.', array( 'status' => 500 ) );
     }
     public static function next_catalog_revision() {
         global $wpdb;
