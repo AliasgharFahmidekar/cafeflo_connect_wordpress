@@ -24,6 +24,7 @@ final class CafeFlo_DB {
 
     public static function activate() {
         global $wpdb;
+        $current_db_version = (string) get_option( 'cafeflo_db_version', '0' );
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
         $charset = $wpdb->get_charset_collate();
         $mappings = self::table( 'mappings' ); $changes = self::table( 'catalog_changes' ); $claims = self::table( 'order_claims' );
@@ -65,7 +66,7 @@ final class CafeFlo_DB {
         if ( false === get_option( 'cafeflo_online_ordering_open', false ) ) add_option( 'cafeflo_online_ordering_open', '1', '', false );
         if ( false === get_option( 'cafeflo_bridge_api_key', false ) ) add_option( 'cafeflo_bridge_api_key', wp_generate_password( 64, true, true ), '', false );
         if ( false === get_option( 'cafeflo_site_id', false ) ) add_option( 'cafeflo_site_id', wp_generate_uuid4(), '', false );
-        if ( '4' === self::DB_VERSION ) {
+        if ( version_compare( $current_db_version, '4', '<' ) ) {
             $columns = $wpdb->get_results( 'SHOW COLUMNS FROM ' . self::table( 'order_claims' ), ARRAY_A );
             $has_bridge_id = false;
             foreach ( $columns as $column ) if ( 'bridge_id' === $column['Field'] ) $has_bridge_id = true;
