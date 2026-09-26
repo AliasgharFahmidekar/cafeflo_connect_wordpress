@@ -18,6 +18,18 @@ final class CafeFlo_Catalog {
         }
 
         $revision = isset( $payload['revision'] ) ? max( 0, (int) $payload['revision'] ) : 0;
+        $source_instance_id = isset( $payload['source_instance_id'] ) ? sanitize_text_field( (string) $payload['source_instance_id'] ) : '';
+        $stored_source_instance_id = (string) get_option( 'cafeflo_source_instance_id', '' );
+        if ( '' !== $source_instance_id && '' !== $stored_source_instance_id && $source_instance_id !== $stored_source_instance_id ) {
+            // A new FloCafe installation may legitimately start with a lower
+            // local revision. Treat the source identity change as a new catalog
+            // stream instead of permanently rejecting every snapshot as stale.
+            update_option( 'cafeflo_last_flocafe_revision', 0, false );
+            update_option( 'cafeflo_catalog_synced', '0', false );
+        }
+        if ( '' !== $source_instance_id && $source_instance_id !== $stored_source_instance_id ) {
+            update_option( 'cafeflo_source_instance_id', $source_instance_id, false );
+        }
         $last = (int) get_option( 'cafeflo_last_flocafe_revision', 0 );
         if ( $revision < $last ) {
             return new WP_Error( 'cafeflo_stale_catalog', 'Catalog revision is older than the last applied revision.', array( 'status' => 409, 'last_source_revision' => $last ) );
