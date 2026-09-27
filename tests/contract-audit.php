@@ -47,7 +47,7 @@ $checks = array(
     'Refund failure goes to hold' => strpos( $source['includes/class-cafeflo-orders.php'], "'on-hold'" ) !== false,
     'Immutable FloCafe product mapping' => strpos( $source['includes/class-cafeflo-catalog.php'], "get_mapping( 'product'" ) !== false && strpos( $source['includes/class-cafeflo-catalog.php'], '_cafeflo_product_id' ) !== false,
     'Catalog same-revision recovery' => strpos( $source['includes/class-cafeflo-catalog.php'], 'current_mappings' ) !== false && strpos( $source['includes/class-cafeflo-catalog.php'], 'already_applied' ) !== false,
-    'Full snapshot hides missing products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'deactivate_missing_managed_products' ) !== false,
+    'Full snapshot deletes missing products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'delete_missing_managed_products' ) !== false,
     'ACF catalog fields are synchronized' =>
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'price'" ) !== false &&
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field(\n            'description'" ) !== false &&
