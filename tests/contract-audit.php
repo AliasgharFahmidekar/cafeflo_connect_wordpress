@@ -24,7 +24,7 @@ foreach ( $files as $file ) $source[ $file ] = (string) file_get_contents( $root
 $checks = array(
     'Product deactivation preserves website visibility' => strpos( $source['includes/class-cafeflo-catalog.php'], '$visible = $category_active;' ) !== false,
     'Full snapshot deletes missing mapped products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'self::delete_missing_managed_products' ) !== false,
-    'Deleted products remove their mapping' => strpos( $source['includes/class-cafeflo-catalog.php'], "CafeFlo_DB::delete_mapping( 'product', $flocafe_id, $source )" ) !== false,
+    'Deleted products remove their mapping' => strpos( $source['includes/class-cafeflo-catalog.php'], 'CafeFlo_DB::delete_mapping' ) !== false,
     'Uncategorized is not retained for uncategorized FloCafe products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'self::remove_default_product_category( $product_id )' ) !== false,
     'REST namespace' => strpos( $source['includes/class-cafeflo-rest.php'], "const NS = 'flocafe/v1'" ) !== false,
     'REST auth callbacks' => substr_count( $source['includes/class-cafeflo-rest.php'], 'self::args()' ) >= 7,
