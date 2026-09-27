@@ -22,6 +22,10 @@ $source = array();
 foreach ( $files as $file ) $source[ $file ] = (string) file_get_contents( $root . '/' . $file );
 
 $checks = array(
+    'Product deactivation preserves website visibility' => strpos( $source['includes/class-cafeflo-catalog.php'], '$visible = $category_active;' ) !== false,
+    'Full snapshot deletes missing mapped products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'self::delete_missing_managed_products' ) !== false,
+    'Deleted products remove their mapping' => strpos( $source['includes/class-cafeflo-catalog.php'], "CafeFlo_DB::delete_mapping( 'product', $flocafe_id, $source )" ) !== false,
+    'Uncategorized is not retained for uncategorized FloCafe products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'self::remove_default_product_category( $product_id )' ) !== false,
     'REST namespace' => strpos( $source['includes/class-cafeflo-rest.php'], "const NS = 'flocafe/v1'" ) !== false,
     'REST auth callbacks' => substr_count( $source['includes/class-cafeflo-rest.php'], 'self::args()' ) >= 7,
     'Bridge heartbeat persistence' => strpos( $source['includes/class-cafeflo-rest.php'], "cafeflo_bridge_last_heartbeat" ) !== false,
@@ -78,22 +82,4 @@ if ( $failed ) {
     fwrite( STDERR, "Failed checks: " . implode( ', ', $failed ) . "\n" );
     exit( 1 );
 }
-/* Catalog lifecycle contract checks. */
-$catalog = file_get_contents( __DIR__ . '/../includes/class-cafeflo-catalog.php' );
-$assert(
-    strpos( $catalog, '$visible = $category_active;' ) !== false,
-    'product deactivation must not force ACF visible=false'
-);
-$assert(
-    strpos( $catalog, 'self::delete_missing_managed_products' ) !== false,
-    'full snapshots must delete mapped products missing from FloCafe'
-);
-$assert(
-    strpos( $catalog, "CafeFlo_DB::delete_mapping( 'product', $flocafe_id, $source )" ) !== false,
-    'deleted products must remove their FloCafe mapping'
-);
-$assert(
-    strpos( $catalog, 'self::remove_default_product_category( $product_id )' ) !== false,
-    'products without a FloCafe category must not retain Woo default category'
-);
 
