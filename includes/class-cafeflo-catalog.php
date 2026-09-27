@@ -86,7 +86,8 @@ final class CafeFlo_Catalog {
             }
 
             if ( $full_snapshot ) {
-                self::delete_missing_managed_products( $seen_products );
+                $delete_result = self::delete_missing_managed_products( $seen_products );
+                if ( is_wp_error( $delete_result ) ) return $delete_result;
                 self::deactivate_missing_managed_categories( $categories );
             }
 
