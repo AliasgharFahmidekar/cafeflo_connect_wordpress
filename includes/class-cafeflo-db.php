@@ -165,6 +165,20 @@ final class CafeFlo_DB {
         );
         return $ok ? (int) $wpdb->insert_id : new WP_Error( 'cafeflo_mapping_insert_failed', 'Could not store mapping.', array( 'status' => 500 ) );
     }
+    public static function delete_mapping( $entity_type, $flocafe_id, $source_instance_id = null ) {
+        global $wpdb;
+        $source = null === $source_instance_id ? self::current_source_instance_id() : (string) $source_instance_id;
+        return (bool) $wpdb->delete(
+            self::table( 'mappings' ),
+            array(
+                'entity_type' => (string) $entity_type,
+                'source_instance_id' => $source,
+                'flocafe_id' => (string) $flocafe_id,
+            ),
+            array( '%s', '%s', '%s' )
+        );
+    }
+
     public static function next_catalog_revision() {
         global $wpdb;
         $option = 'cafeflo_wp_catalog_revision';
