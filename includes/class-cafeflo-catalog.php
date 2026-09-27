@@ -86,7 +86,7 @@ final class CafeFlo_Catalog {
             }
 
             if ( $full_snapshot ) {
-                self::deactivate_missing_managed_products( $seen_products );
+                self::delete_missing_managed_products( $seen_products );
                 self::deactivate_missing_managed_categories( $categories );
             }
 
@@ -232,11 +232,9 @@ final class CafeFlo_Catalog {
             ? ! empty( $data['available'] )
             : ( array_key_exists( 'is_available', $data ) ? ! empty( $data['is_available'] ) : true );
 
-        $source_active = array_key_exists( 'active', $data ) ? ! empty( $data['active'] ) : true;
-
-        // Keep the existing operational visibility behavior while exposing
-        // the two separate ACF fields to the website.
-        $visible = $category_active && $source_active && $available;
+        // FloCafe lifecycle state controls availability, not website visibility.
+        // A product may remain visible on the website while unavailable for ordering.
+        $visible = $category_active;
 
         // FloCafe's canonical price is Rial. When enabled, convert exactly once at
         // the catalog boundary so WooCommerce and ACF both work in Toman.
@@ -296,6 +294,8 @@ final class CafeFlo_Catalog {
             if ( $category_map ) {
                 wp_set_object_terms( $product_id, array( (int) $category_map['wp_id'] ), 'product_cat', true );
             }
+        } else {
+            self::remove_default_product_category( $product_id );
         }
 
         CafeFlo_DB::record_catalog_change( 'product', $id, $action );
@@ -395,6 +395,13 @@ final class CafeFlo_Catalog {
         return (int) $attachment_id;
     }
 
+    private static function remove_default_product_category( $product_id ) {
+        $default_category_id = (int) get_option( 'default_product_cat', 0 );
+        if ( $default_category_id > 0 ) {
+            wp_remove_object_terms( (int) $product_id, array( $default_category_id ), 'product_cat' );
+        }
+    }
+
     private static function remove_managed_category_terms( $product_id ) {
         $current = wp_get_object_terms( (int) $product_id, 'product_cat', array( 'fields' => 'ids' ) );
         if ( is_wp_error( $current ) ) return;
@@ -405,7 +412,7 @@ final class CafeFlo_Catalog {
         if ( $managed ) wp_remove_object_terms( (int) $product_id, $managed, 'product_cat' );
     }
 
-    private static function deactivate_missing_managed_products( $seen ) {
+    private static function delete_missing_managed_products( $seen ) {
         global $wpdb;
         $source = CafeFlo_DB::current_source_instance_id();
         $rows = $wpdb->get_results(
@@ -415,22 +422,27 @@ final class CafeFlo_Catalog {
             ),
             ARRAY_A
         );
+
         foreach ( $rows as $row ) {
-            if ( isset( $seen[(string) $row['flocafe_id']] ) ) continue;
-            $product = wc_get_product( (int) $row['wp_id'] );
-            if ( ! $product ) continue;
-            $was_active = 'publish' === $product->get_status() || 'visible' === $product->get_catalog_visibility();
-            $product->set_status( 'draft' );
-            $product->set_catalog_visibility( 'hidden' );
-            $product->save();
-            update_post_meta( (int) $row['wp_id'], '_cafeflo_available', '0' );
-            update_post_meta( (int) $row['wp_id'], '_cafeflo_visible', '0' );
-            if ( function_exists( 'update_field' ) ) {
-                update_field( 'available', false, (int) $row['wp_id'] );
-                update_field( 'visible', false, (int) $row['wp_id'] );
+            $flocafe_id = (string) $row['flocafe_id'];
+            if ( isset( $seen[ $flocafe_id ] ) ) continue;
+
+            $wp_id = (int) $row['wp_id'];
+            if ( $wp_id > 0 && get_post( $wp_id ) ) {
+                $deleted = wp_delete_post( $wp_id, true );
+                if ( false === $deleted ) {
+                    return new WP_Error(
+                        'cafeflo_product_delete_failed',
+                        'Could not delete the mapped WooCommerce product.',
+                        array( 'status' => 500, 'flocafe_id' => $flocafe_id, 'wp_id' => $wp_id )
+                    );
+                }
             }
-            if ( $was_active ) CafeFlo_DB::record_catalog_change( 'product', (string) $row['flocafe_id'], 'deactivated' );
+
+            CafeFlo_DB::delete_mapping( 'product', $flocafe_id, $source );
+            CafeFlo_DB::record_catalog_change( 'product', $flocafe_id, 'deleted' );
         }
+        return true;
     }
 
     private static function deactivate_missing_managed_categories( $categories ) {
