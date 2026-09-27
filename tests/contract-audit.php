@@ -78,3 +78,22 @@ if ( $failed ) {
     fwrite( STDERR, "Failed checks: " . implode( ', ', $failed ) . "\n" );
     exit( 1 );
 }
+/* Catalog lifecycle contract checks. */
+$catalog = file_get_contents( __DIR__ . '/../includes/class-cafeflo-catalog.php' );
+$assert(
+    strpos( $catalog, '$visible = $category_active;' ) !== false,
+    'product deactivation must not force ACF visible=false'
+);
+$assert(
+    strpos( $catalog, 'self::delete_missing_managed_products' ) !== false,
+    'full snapshots must delete mapped products missing from FloCafe'
+);
+$assert(
+    strpos( $catalog, "CafeFlo_DB::delete_mapping( 'product', $flocafe_id, $source )" ) !== false,
+    'deleted products must remove their FloCafe mapping'
+);
+$assert(
+    strpos( $catalog, 'self::remove_default_product_category( $product_id )' ) !== false,
+    'products without a FloCafe category must not retain Woo default category'
+);
+
