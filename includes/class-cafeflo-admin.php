@@ -24,10 +24,22 @@ final class CafeFlo_Admin {
         register_setting( 'cafeflo_connect', 'cafeflo_bridge_api_key', array( 'sanitize_callback' => array( __CLASS__, 'sanitize_key' ) ) );
         register_setting( 'cafeflo_connect', 'cafeflo_site_id', array( 'sanitize_callback' => 'sanitize_text_field' ) );
         register_setting( 'cafeflo_connect', 'cafeflo_price_rial_to_toman', array( 'sanitize_callback' => array( __CLASS__, 'sanitize_toggle' ) ) );
+        register_setting( 'cafeflo_connect', 'cafeflo_product_taxonomy', array( 'sanitize_callback' => array( __CLASS__, 'sanitize_taxonomy' ) ) );
     }
 
     public static function sanitize_toggle( $value ) {
         return empty( $value ) ? '0' : '1';
+    }
+
+    public static function sanitize_taxonomy( $value ) {
+        $value = sanitize_key( $value );
+        if ( taxonomy_exists( $value ) ) {
+            $taxonomy = get_taxonomy( $value );
+            if ( $taxonomy && in_array( 'product', (array) $taxonomy->object_type, true ) ) {
+                return $value;
+            }
+        }
+        return 'product_cat';
     }
 
     public static function sanitize_key( $value ) {
@@ -65,6 +77,17 @@ final class CafeFlo_Admin {
                         <td><input class="regular-text code" id="cafeflo_bridge_api_key" name="cafeflo_bridge_api_key" type="text" autocomplete="off" value="<?php echo esc_attr( get_option( 'cafeflo_bridge_api_key', '' ) ); ?>" /><p class="description">This shared secret is used only by the Bridge. Store it securely. It is shown only to users who can manage WooCommerce.</p></td>
                     </tr>
                     <tr>
+                        <th scope="row"><label for="cafeflo_product_taxonomy">Product taxonomy</label></th>
+                        <td>
+                            <select class="regular-text" id="cafeflo_product_taxonomy" name="cafeflo_product_taxonomy">
+                                <?php foreach ( CafeFlo_Catalog::available_taxonomies() as $taxonomy ) : ?>
+                                    <option value="<?php echo esc_attr( $taxonomy->name ); ?>" <?php selected( $taxonomy->name, CafeFlo_Catalog::taxonomy() ); ?>><?php echo esc_html( $taxonomy->labels->singular_name . ' (' . $taxonomy->name . ')' ); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="description">Choose the WordPress taxonomy that CafeFlo should use for product categories. WooCommerce's <code>product_cat</code> remains the default.</p>
+                        </td>
+                    </tr>
+                    <tr>
                         <th scope="row">Price unit conversion</th>
                         <td>
                             <label>
@@ -81,6 +104,7 @@ final class CafeFlo_Admin {
             </form>
             <p><strong>Security:</strong> the bridge endpoint accepts only the configured secret; no WordPress login cookie or browser nonce is required for Bridge traffic.</p>
             <p><strong>Price:</strong> FloCafe prices are treated as Rial by default and converted to Toman once at the catalog boundary. You can disable this in the setting above if the source already sends Toman.</p>
+            <p><strong>Product taxonomy:</strong> FloCafe categories are synchronized into the taxonomy selected above. Existing mappings are automatically recreated in the selected taxonomy when necessary.</p>
             <p><strong>ACF:</strong> catalog sync writes FloCafe product data to <code>price</code>, <code>description</code>, <code>available</code>, <code>visible</code>, and <code>product_image</code>. The <code>featured</code> field is intentionally left untouched because FloCafe does not currently provide that value.</p>
         </div>
         <?php
