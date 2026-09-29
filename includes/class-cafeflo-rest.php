@@ -77,7 +77,9 @@ final class CafeFlo_REST {
             'catalog_synced' => '1' === get_option( 'cafeflo_catalog_synced', '0' ),
             'server_time' => gmdate( 'c' ),
             'timestamp' => time(),
-            'currency' => isset( $state['currency'] ) && $state['currency'] ? $state['currency'] : ( function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : '' ),
+            'currency' => isset( $state['currency'] ) && $state['currency'] ? $state['currency'] : (string) get_option( 'cafeflo_currency', 'IRR' ),
+            'product_post_type' => CafeFlo_Catalog::PRODUCT_POST_TYPE,
+            'orders_enabled' => false,
         ) );
     }
 
@@ -86,21 +88,11 @@ final class CafeFlo_REST {
         if ( ! is_array( $body ) ) $body = array();
 
         update_option( 'cafeflo_bridge_last_heartbeat', time(), false );
-
         $incoming_source_instance_id = isset( $body['bridge_id'] ) ? sanitize_text_field( (string) $body['bridge_id'] ) : '';
         $stored_source_instance_id = (string) get_option( 'cafeflo_source_instance_id', '' );
         $source_changed = '' !== $incoming_source_instance_id && $incoming_source_instance_id !== $stored_source_instance_id;
+
         if ( '' !== $incoming_source_instance_id ) {
-            if ( $source_changed && '' === $stored_source_instance_id ) {
-                global $wpdb;
-                $wpdb->query(
-                    $wpdb->prepare(
-                        'UPDATE ' . CafeFlo_DB::table( 'mappings' ) . ' SET source_instance_id=%s WHERE source_instance_id=%s',
-                        $incoming_source_instance_id,
-                        ''
-                    )
-                );
-            }
             update_option( 'cafeflo_source_instance_id', $incoming_source_instance_id, false );
         }
         if ( $source_changed ) {
@@ -108,25 +100,22 @@ final class CafeFlo_REST {
             update_option( 'cafeflo_catalog_synced', '0', false );
         }
 
-        $store = array();
-        if ( isset( $body['flocafe_store'] ) && is_array( $body['flocafe_store'] ) ) {
-            $store = $body['flocafe_store'];
-        } else {
-            $store = array(
-                'online_ordering_enabled' => ! empty( $body['online_ordering_enabled'] ),
-                'online_ordering_open' => ! empty( $body['online_ordering_open'] ),
-            );
-        }
+        $store = isset( $body['flocafe_store'] ) && is_array( $body['flocafe_store'] ) ? $body['flocafe_store'] : array(
+            'online_ordering_enabled' => ! empty( $body['online_ordering_enabled'] ),
+            'online_ordering_open' => ! empty( $body['online_ordering_open'] ),
+        );
 
         $enabled = ! empty( $store['online_ordering_enabled'] );
         $open = ! empty( $store['online_ordering_open'] );
+        $currency = isset( $store['currency'] ) ? sanitize_text_field( (string) $store['currency'] ) : '';
 
         update_option( 'cafeflo_online_ordering_enabled', $enabled ? '1' : '0', false );
         update_option( 'cafeflo_online_ordering_open', $open ? '1' : '0', false );
+        update_option( 'cafeflo_currency', $currency, false );
         update_option( 'cafeflo_flocafe_store_state', array(
             'online_ordering_enabled' => $enabled,
             'online_ordering_open' => $open,
-            'currency' => isset( $store['currency'] ) ? sanitize_text_field( (string) $store['currency'] ) : '',
+            'currency' => $currency,
             'received_at' => time(),
         ), false );
         update_option( 'cafeflo_flocafe_store_state_received_at', time(), false );
@@ -142,16 +131,20 @@ final class CafeFlo_REST {
             'received_at' => time(),
             'site_id' => (string) get_option( 'cafeflo_site_id', '' ),
             'source_instance_id' => (string) get_option( 'cafeflo_source_instance_id', '' ),
+            'orders_enabled' => false,
         ) );
     }
 
     public static function orders_pending( WP_REST_Request $request ) {
-        return rest_ensure_response( array( 'orders' => CafeFlo_Orders::pending_orders( max( 1, min( 50, (int) $request->get_param( 'limit' ) ) ) ) ) );
+        return rest_ensure_response( array(
+            'orders' => array(),
+            'orders_enabled' => false,
+            'reason' => 'orders_disabled',
+        ) );
     }
 
     public static function orders_claim( WP_REST_Request $request ) {
-        $result = CafeFlo_Orders::claim( (int) $request['id'], sanitize_text_field( (string) $request->get_header( 'x-cafeflo-bridge-id' ) ) );
-        return self::response( $result );
+        return self::response( CafeFlo_Orders::claim( (int) $request['id'], sanitize_text_field( (string) $request->get_header( 'x-cafeflo-bridge-id' ) ) ) );
     }
 
     public static function orders_ack( WP_REST_Request $request ) {
@@ -173,11 +166,12 @@ final class CafeFlo_REST {
             'online_ordering_open' => '1' === get_option( 'cafeflo_online_ordering_open', '0' ),
             'bridge_connected' => CafeFlo_Orders::bridge_fresh(),
             'catalog_revision' => (int) get_option( 'cafeflo_last_flocafe_revision', 0 ),
-            'currency' => isset( $state['currency'] ) && $state['currency'] ? $state['currency'] : ( function_exists( 'get_woocommerce_currency' ) ? get_woocommerce_currency() : '' ),
+            'currency' => isset( $state['currency'] ) && $state['currency'] ? $state['currency'] : (string) get_option( 'cafeflo_currency', 'IRR' ),
             'fresh' => CafeFlo_Orders::flocafe_store_fresh(),
             'received_at' => (int) get_option( 'cafeflo_flocafe_store_state_received_at', 0 ),
             'state' => $state,
             'timestamp' => gmdate( 'c' ),
+            'orders_enabled' => false,
         ) );
     }
 

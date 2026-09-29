@@ -1,11 +1,10 @@
 <?php
 /**
  * Plugin Name: CafeFlo Connect for WordPress
- * Description: Secure WordPress/WooCommerce integration boundary for the CafeFlo/FloCafe local bridge.
- * Version: 0.8.0
+ * Description: Secure WordPress integration boundary for the local FloCafe Bridge using the products custom post type and ACF.
+ * Version: 0.9.0
  * Requires at least: 6.6
  * Requires PHP: 7.4
- * Requires Plugins: woocommerce
  * Author: CafeFlo
  * License: GPL-2.0-or-later
  * Text Domain: cafeflo-connect
@@ -13,7 +12,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'CAFEFLO_CONNECT_VERSION', '0.8.0' );
+define( 'CAFEFLO_CONNECT_VERSION', '0.9.0' );
 define( 'CAFEFLO_CONNECT_FILE', __FILE__ );
 define( 'CAFEFLO_CONNECT_DIR', plugin_dir_path( __FILE__ ) );
 
@@ -29,20 +28,7 @@ register_activation_hook( __FILE__, array( 'CafeFlo_DB', 'activate' ) );
 add_action(
     'plugins_loaded',
     function () {
-        if ( ! class_exists( 'WooCommerce' ) ) {
-            add_action(
-                'admin_notices',
-                function () {
-                    if ( current_user_can( 'activate_plugins' ) ) {
-                        echo '<div class="notice notice-error"><p><strong>CafeFlo Connect</strong> requires WooCommerce to be active.</p></div>';
-                    }
-                }
-            );
-            return;
-        }
-
         CafeFlo_DB::maybe_upgrade();
-
         CafeFlo_Catalog::boot();
         CafeFlo_Orders::boot();
         CafeFlo_REST::boot();
