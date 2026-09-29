@@ -298,11 +298,8 @@ final class CafeFlo_Catalog {
         $post = $product_id ? get_post( $product_id ) : false;
 
         if ( ! $post || self::PRODUCT_POST_TYPE !== $post->post_type ) {
-            $recover = self::find_product_by_flocafe_id( $id );
-            if ( $recover ) {
-                $product_id = $recover;
-                $post = get_post( $product_id );
-            }
+            $product_id = 0;
+            $post = false;
         }
 
         $category_active = true;
@@ -347,8 +344,10 @@ final class CafeFlo_Catalog {
         self::sync_acf_product_fields( $product_id, $data, $available, $visible, $price );
 
         update_post_meta( $product_id, '_cafeflo_product_id', $id );
+        update_post_meta( $product_id, '_cafeflo_source_instance_id', CafeFlo_DB::current_source_instance_id() );
         update_post_meta( $product_id, '_cafeflo_source_revision', (int) $source_revision );
         update_post_meta( $product_id, '_cafeflo_source_hash', md5( wp_json_encode( array( $id, $data, $available, $visible ) ) ) );
+        update_post_meta( $product_id, '_cafeflo_price', $price );
         update_post_meta( $product_id, '_cafeflo_available', $available ? '1' : '0' );
         update_post_meta( $product_id, '_cafeflo_visible', $visible ? '1' : '0' );
         update_post_meta( $product_id, '_cafeflo_image_url', ! empty( $data['image_url'] ) ? esc_url_raw( $data['image_url'] ) : '' );
@@ -369,18 +368,6 @@ final class CafeFlo_Catalog {
 
         CafeFlo_DB::record_catalog_change( 'product', $id, $action );
         return array( 'flocafe_id' => $id, 'wp_id' => $product_id, 'changed' => true );
-    }
-
-    private static function find_product_by_flocafe_id( $flocafe_id ) {
-        $ids = get_posts( array(
-            'post_type' => self::PRODUCT_POST_TYPE,
-            'post_status' => 'any',
-            'posts_per_page' => 1,
-            'fields' => 'ids',
-            'meta_key' => '_cafeflo_product_id',
-            'meta_value' => (string) $flocafe_id,
-        ) );
-        return empty( $ids ) ? 0 : (int) $ids[0];
     }
 
     private static function unique_product_slug( $slug, $exclude_id = 0 ) {
