@@ -22,6 +22,10 @@ $source = array();
 foreach ( $files as $file ) $source[ $file ] = (string) file_get_contents( $root . '/' . $file );
 
 $checks = array(
+    'Product deactivation preserves website visibility' => strpos( $source['includes/class-cafeflo-catalog.php'], '$visible = $category_active;' ) !== false,
+    'Full snapshot deletes missing mapped products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'self::delete_missing_managed_products' ) !== false,
+    'Deleted products remove their mapping' => strpos( $source['includes/class-cafeflo-catalog.php'], 'CafeFlo_DB::delete_mapping' ) !== false,
+    'Uncategorized is not retained for uncategorized FloCafe products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'self::remove_default_product_category( $product_id )' ) !== false,
     'REST namespace' => strpos( $source['includes/class-cafeflo-rest.php'], "const NS = 'flocafe/v1'" ) !== false,
     'REST auth callbacks' => substr_count( $source['includes/class-cafeflo-rest.php'], 'self::args()' ) >= 7,
     'Bridge heartbeat persistence' => strpos( $source['includes/class-cafeflo-rest.php'], "cafeflo_bridge_last_heartbeat" ) !== false,
@@ -43,7 +47,7 @@ $checks = array(
     'Refund failure goes to hold' => strpos( $source['includes/class-cafeflo-orders.php'], "'on-hold'" ) !== false,
     'Immutable FloCafe product mapping' => strpos( $source['includes/class-cafeflo-catalog.php'], "get_mapping( 'product'" ) !== false && strpos( $source['includes/class-cafeflo-catalog.php'], '_cafeflo_product_id' ) !== false,
     'Catalog same-revision recovery' => strpos( $source['includes/class-cafeflo-catalog.php'], 'current_mappings' ) !== false && strpos( $source['includes/class-cafeflo-catalog.php'], 'already_applied' ) !== false,
-    'Full snapshot hides missing products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'deactivate_missing_managed_products' ) !== false,
+    'Full snapshot deletes missing products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'delete_missing_managed_products' ) !== false,
     'ACF catalog fields are synchronized' =>
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'price'" ) !== false &&
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field(\n            'description'" ) !== false &&
@@ -82,3 +86,4 @@ if ( $failed ) {
     fwrite( STDERR, "Failed checks: " . implode( ', ', $failed ) . "\n" );
     exit( 1 );
 }
+
