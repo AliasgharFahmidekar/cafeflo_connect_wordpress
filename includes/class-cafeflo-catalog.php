@@ -4,9 +4,40 @@ defined( 'ABSPATH' ) || exit;
 final class CafeFlo_Catalog {
     private static $syncing = false;
 
+    public static function taxonomy() {
+        $selected = sanitize_key( (string) get_option( 'cafeflo_product_taxonomy', 'product_cat' ) );
+        if ( taxonomy_exists( $selected ) ) {
+            $taxonomy = get_taxonomy( $selected );
+            if ( $taxonomy && in_array( 'product', (array) $taxonomy->object_type, true ) ) {
+                return $selected;
+            }
+        }
+        return 'product_cat';
+    }
+
+    public static function available_taxonomies() {
+        $taxonomies = get_object_taxonomies( 'product', 'objects' );
+        $result = array();
+        foreach ( $taxonomies as $taxonomy ) {
+            if ( empty( $taxonomy->show_ui ) || ! empty( $taxonomy->_builtin ) && 'product_cat' !== $taxonomy->name ) {
+                continue;
+            }
+            $result[] = $taxonomy;
+        }
+        usort(
+            $result,
+            static function ( $a, $b ) {
+                if ( 'product_cat' === $a->name ) return -1;
+                if ( 'product_cat' === $b->name ) return 1;
+                return strcasecmp( $a->label, $b->label );
+            }
+        );
+        return $result;
+    }
+
     public static function boot() {
         add_action( 'save_post_product', array( __CLASS__, 'track_local_product_change' ), 20, 3 );
-        add_action( 'edited_product_cat', array( __CLASS__, 'track_local_category_change' ), 20 );
+        add_action( 'edited_term', array( __CLASS__, 'track_local_category_change' ), 20, 3 );
     }
 
     public static function sync( $payload ) {
@@ -73,8 +104,8 @@ final class CafeFlo_Catalog {
                 if ( '' === $parent_id ) continue;
                 $map = CafeFlo_DB::get_mapping( 'category', (string) $category['id'] );
                 $parent = CafeFlo_DB::get_mapping( 'category', $parent_id );
-                if ( $map && $parent && get_term( (int) $map['wp_id'], 'product_cat' ) ) {
-                    wp_update_term( (int) $map['wp_id'], 'product_cat', array( 'parent' => (int) $parent['wp_id'] ) );
+                if ( $map && $parent && get_term( (int) $map['wp_id'], self::taxonomy() ) ) {
+                    wp_update_term( (int) $map['wp_id'], self::taxonomy(), array( 'parent' => (int) $parent['wp_id'] ) );
                 }
             }
 
@@ -149,7 +180,7 @@ final class CafeFlo_Catalog {
             'icon' => isset( $data['icon'] ) ? (string) $data['icon'] : '',
         ) ) );
 
-        if ( $term_id && get_term( $term_id, 'product_cat' ) && $source_hash === get_term_meta( $term_id, '_cafeflo_source_hash', true ) ) {
+        if ( $term_id && get_term( $term_id, self::taxonomy() ) && $source_hash === get_term_meta( $term_id, '_cafeflo_source_hash', true ) ) {
             return array( 'flocafe_id' => $id, 'wp_id' => $term_id, 'changed' => false );
         }
 
@@ -159,16 +190,16 @@ final class CafeFlo_Catalog {
             'slug' => ! empty( $data['slug'] ) ? sanitize_title( $data['slug'] ) : sanitize_title( $name ),
         );
 
-        if ( $term_id && get_term( $term_id, 'product_cat' ) ) {
-            $result = wp_update_term( $term_id, 'product_cat', array_merge( array( 'name' => $name ), $args ) );
+        if ( $term_id && get_term( $term_id, self::taxonomy() ) ) {
+            $result = wp_update_term( $term_id, self::taxonomy(), array_merge( array( 'name' => $name ), $args ) );
             if ( is_wp_error( $result ) ) return $result;
             $term_id = (int) $result['term_id'];
             $action = 'updated';
         } else {
-            $result = wp_insert_term( $name, 'product_cat', $args );
+            $result = wp_insert_term( $name, self::taxonomy(), $args );
             if ( is_wp_error( $result ) && 'term_exists' === $result->get_error_code() ) {
                 $args['slug'] = sanitize_title( $name . '-flocafe-' . $id );
-                $result = wp_insert_term( $name, 'product_cat', $args );
+                $result = wp_insert_term( $name, self::taxonomy(), $args );
             }
             if ( is_wp_error( $result ) ) return $result;
             $term_id = (int) $result['term_id'];
@@ -187,7 +218,7 @@ final class CafeFlo_Catalog {
         if ( ! empty( $data['parent_id'] ) ) {
             $parent = CafeFlo_DB::get_mapping( 'category', (string) $data['parent_id'] );
             if ( $parent ) {
-                wp_update_term( $term_id, 'product_cat', array( 'parent' => (int) $parent['wp_id'] ) );
+                wp_update_term( $term_id, self::taxonomy(), array( 'parent' => (int) $parent['wp_id'] ) );
             }
         }
 
@@ -294,7 +325,7 @@ final class CafeFlo_Catalog {
         if ( ! empty( $data['category_id'] ) ) {
             $category_map = CafeFlo_DB::get_mapping( 'category', (string) $data['category_id'] );
             if ( $category_map ) {
-                wp_set_object_terms( $product_id, array( (int) $category_map['wp_id'] ), 'product_cat', true );
+                wp_set_object_terms( $product_id, array( (int) $category_map['wp_id'] ), self::taxonomy(), true );
             }
         }
 
@@ -396,13 +427,13 @@ final class CafeFlo_Catalog {
     }
 
     private static function remove_managed_category_terms( $product_id ) {
-        $current = wp_get_object_terms( (int) $product_id, 'product_cat', array( 'fields' => 'ids' ) );
+        $current = wp_get_object_terms( (int) $product_id, self::taxonomy(), array( 'fields' => 'ids' ) );
         if ( is_wp_error( $current ) ) return;
         $managed = array();
         foreach ( $current as $term_id ) {
             if ( CafeFlo_DB::get_mapping_by_wp_id( 'category', (int) $term_id ) ) $managed[] = (int) $term_id;
         }
-        if ( $managed ) wp_remove_object_terms( (int) $product_id, $managed, 'product_cat' );
+        if ( $managed ) wp_remove_object_terms( (int) $product_id, $managed, self::taxonomy() );
     }
 
     private static function deactivate_missing_managed_products( $seen ) {
@@ -447,7 +478,7 @@ final class CafeFlo_Catalog {
         );
         foreach ( $rows as $row ) {
             if ( isset( $seen[(string) $row['flocafe_id']] ) ) continue;
-            if ( get_term( (int) $row['wp_id'], 'product_cat' ) ) update_term_meta( (int) $row['wp_id'], '_cafeflo_active', '0' );
+            if ( get_term( (int) $row['wp_id'], self::taxonomy() ) ) update_term_meta( (int) $row['wp_id'], '_cafeflo_active', '0' );
         }
     }
 
@@ -457,8 +488,8 @@ final class CafeFlo_Catalog {
         if ( $id ) CafeFlo_DB::record_catalog_change( 'product', (string) $id, 'local_update' );
     }
 
-    public static function track_local_category_change( $term_id ) {
-        if ( self::$syncing ) return;
+    public static function track_local_category_change( $term_id, $tt_id = 0, $taxonomy = '' ) {
+        if ( self::$syncing || self::taxonomy() !== $taxonomy ) return;
         $id = get_term_meta( $term_id, '_cafeflo_category_id', true );
         if ( $id ) CafeFlo_DB::record_catalog_change( 'category', (string) $id, 'local_update' );
     }
@@ -499,7 +530,7 @@ final class CafeFlo_Catalog {
 
     public static function snapshot() {
         $categories = array();
-        $terms = get_terms( array( 'taxonomy' => 'product_cat', 'hide_empty' => false, 'meta_key' => '_cafeflo_category_id' ) );
+        $terms = get_terms( array( 'taxonomy' => self::taxonomy(), 'hide_empty' => false, 'meta_key' => '_cafeflo_category_id' ) );
         if ( ! is_wp_error( $terms ) ) {
             foreach ( $terms as $term ) {
                 $id = get_term_meta( $term->term_id, '_cafeflo_category_id', true );
