@@ -509,7 +509,7 @@ final class CafeFlo_Catalog {
     private static function deactivate_missing_managed_categories( $categories ) {
         $seen = array();
         foreach ( $categories as $category ) {
-            if ( isset( $category['id'] ) ) $seen[(string) $category['id'] = true;
+            if ( isset( $category['id'] ) ) $seen[(string) $category['id']] = true;
         }
         global $wpdb;
         $source = CafeFlo_DB::current_source_instance_id();
