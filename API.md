@@ -1,84 +1,46 @@
 # CafeFlo Connect API Contract
 
 Base: `https://YOUR-SITE.example/wp-json/flocafe/v1`
-
 Authentication: `X-CafeFlo-Bridge-Key`, `X-FloCafe-Bridge-Key`, `X-FloCafe-Integration-Key`, or `Authorization: Bearer <secret>`.
-
-## Catalog
 
 | Method | Endpoint | Purpose |
 |---|---|---|
-| GET | `/health` | WordPress + Bridge + catalog status. |
-| POST | `/bridge/heartbeat` | Persist Bridge identity and current FloCafe store state. |
-| POST | `/catalog/sync` | Apply a source FloCafe catalog snapshot to the `products` custom post type and ACF. |
+| GET | `/health` | WordPress + Bridge + source catalog status. |
+| POST | `/bridge/heartbeat` | Persist Bridge heartbeat and latest FloCafe store state. |
+| GET | `/orders/pending?limit=50` | Paid online orders awaiting transfer. |
+| POST | `/orders/{id}/claim` | Atomically claim an order; returns `claim_id`. |
+| POST | `/orders/{id}/ack` | Persist FloCafe order ID; current claim ID is required. |
+| POST | `/orders/{id}/failed` | Persist retryable/permanent failures; permanent paid failures refund. |
+| POST | `/orders/{id}/status` | Mirror meaningful FloCafe states to Woo; paid FloCafe cancellations attempt refund. |
+| GET | `/store/status` | Current FloCafe-derived online ordering state and freshness. |
+| POST | `/catalog/sync` | Apply a source FloCafe snapshot. |
 | GET | `/catalog/changes?after_revision=N` | Read WordPress-local catalog changes. |
-| GET | `/catalog/snapshot` | Read the current mapped catalog in the format expected by the native Bridge. |
+| GET | `/catalog/snapshot` | Read current mapped Woo catalog with latest FloCafe source revision. |
 
-Products are stored as WordPress posts with post type `products`. Website-facing values use the existing ACF contract:
+## Invariants
 
-- `price`
-- `description`
-- `available`
-- `visible`
-- `product_image`
+- FloCafe IDs are immutable identity keys within the source instance. Source instance ID + FloCafe ID identify catalog mappings; product or category names never identify a mapping.
+- Source FloCafe revision is distinct from WordPress-local catalog-change revision.
+- `catalog/sync` rejects stale revisions and is idempotent for a revision already applied; it also returns current mappings so a restarted Bridge can recover them.
+- Full snapshots deactivate mapped products missing from the snapshot and mark missing mapped categories inactive. Nothing is hard-deleted by catalog sync.
+- ACF and Elementor presentation fields are not overwritten.
+- WooCommerce inventory quantity is intentionally not synchronized.
+- Orders are created in WooCommerce as paid online orders, then exposed through `orders/pending`.
+- A paid order cannot be ACKed without its current claim token, unless it was already ACKed (idempotent replay).
+- Permanent paid transfer failure attempts a real gateway refund with no item restock; refund failure puts the order on hold for manual review.
+- FloCafe cancellation of a paid order attempts a gateway refund with no item restock; refund failure puts the order on hold.
+- Checkout is rejected while Bridge/FloCafe heartbeats are stale or FloCafe reports online ordering disabled/closed. The menu may remain visible.
 
-`featured` is intentionally untouched.
 
-## Immutable identity
-
-The authoritative identity is the mapping table key:
-
-`source_instance_id + entity_type + flocafe_id`
-
-The product name, title, slug, SKU, or category name is never used to identify a product. Every mapped `products` post also keeps `_cafeflo_product_id` as a local identity marker.
-
-The mapping response includes both the new explicit WordPress ID and a compatibility alias:
+### Order status payload
 
 ```json
 {
-  "flocafe_product_id": "123",
-  "wordpress_product_id": 456,
-  "woo_product_id": 456
+  "flocafe_order_id": "123",
+  "flocafe_status": "preparing",
+  "status": "preparing"
 }
 ```
+`flocafe_status` is canonical. The plugin also accepts historical mapped values such as `waiting-cafe`, `waiting-for-cafe`, `received-cafe` and `received-by-cafe`.
 
-`woo_product_id` is retained only because the current FloCafe Bridge already reads that wire field. It is the same WordPress post ID and does not imply a runtime WooCommerce dependency.
-
-This means changing a product title/name does not change its identity. If a mapped post is deleted, the next catalog synchronization may create a replacement `products` post and update the same FloCafe-ID mapping to the new WordPress post ID.
-
-## Orders compatibility
-
-WordPress-side orders are intentionally disabled.
-
-`GET /orders/pending` always returns:
-
-```json
-{
-  "orders": [],
-  "orders_enabled": false,
-  "reason": "orders_disabled"
-}
-```
-
-The legacy mutation endpoints remain available:
-
-- `POST /orders/{id}/claim`
-- `POST /orders/{id}/ack`
-- `POST /orders/{id}/failed`
-- `POST /orders/{id}/status`
-
-They return HTTP 200 no-op responses such as:
-
-```json
-{
-  "ok": true,
-  "ignored": true,
-  "reason": "orders_disabled"
-}
-```
-
-This is deliberate. The current FloCafe Bridge continues polling these endpoints, so removing them entirely would create repeated HTTP errors even though there are no WordPress orders to transfer.
-
-## Independence boundary
-
-This plugin does not require WooCommerce, does not check for its presence, and does not register WooCommerce lifecycle hooks. The catalog path uses WordPress core, the `products` custom post type, ACF, and the existing CafeFlo mapping database.
+- Native FloCafe Bridge sends `source_instance_id` on catalog sync and `bridge_id` on heartbeat; WordPress persists that identity so reconnects from a different FloCafe installation cannot reuse another installation's mappings.

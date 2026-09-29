@@ -20,49 +20,57 @@ foreach ( $files as $file ) {
 
 $source = array();
 foreach ( $files as $file ) $source[ $file ] = (string) file_get_contents( $root . '/' . $file );
-$all_code = implode( "\n", $source );
 
 $checks = array(
     'REST namespace' => strpos( $source['includes/class-cafeflo-rest.php'], "const NS = 'flocafe/v1'" ) !== false,
     'REST auth callbacks' => substr_count( $source['includes/class-cafeflo-rest.php'], 'self::args()' ) >= 7,
-    'Constant-time bridge auth' => strpos( $source['includes/class-cafeflo-auth.php'], 'hash_equals' ) !== false,
-    'Admin capability is WordPress-native' => strpos( $source['includes/class-cafeflo-auth.php'], 'manage_options' ) !== false,
-    'Products CPT is authoritative' => strpos( $source['includes/class-cafeflo-catalog.php'], "const PRODUCT_POST_TYPE = 'products'" ) !== false,
-    'Local product hook uses products CPT' => strpos( $source['includes/class-cafeflo-catalog.php'], "save_post_' . self::PRODUCT_POST_TYPE" ) !== false,
-    'Independent category taxonomy exists' => strpos( $source['includes/class-cafeflo-catalog.php'], "const DEFAULT_TAXONOMY = 'cafeflo_product_category'" ) !== false,
-    'ACF fields are synchronized' =>
+    'Bridge heartbeat persistence' => strpos( $source['includes/class-cafeflo-rest.php'], "cafeflo_bridge_last_heartbeat" ) !== false,
+    'FloCafe store freshness persistence' => strpos( $source['includes/class-cafeflo-rest.php'], "cafeflo_flocafe_store_state_received_at" ) !== false,
+    'Pending order limit is bounded' => strpos( $source['includes/class-cafeflo-orders.php'], "min( 50" ) !== false && strpos( $source['includes/class-cafeflo-orders.php'], "limit" ) !== false,
+    'Checkout marks mapped orders online' => strpos( $source['includes/class-cafeflo-orders.php'], 'woocommerce_checkout_order_created' ) !== false && strpos( $source['includes/class-cafeflo-orders.php'], '_cafeflo_online_order' ) !== false,
+    'Order payload carries both Woo and FloCafe IDs' => strpos( $source['includes/class-cafeflo-orders.php'], "flocafe_product_id" ) !== false && strpos( $source['includes/class-cafeflo-orders.php'], 'product->get_id' ) !== false,
+    'Health returns Bridge schema fields' => strpos( $source['includes/class-cafeflo-rest.php'], "'api_version' => '1'" ) !== false && strpos( $source['includes/class-cafeflo-rest.php'], "'server_time' => gmdate( 'c' )" ) !== false && strpos( $source['includes/class-cafeflo-rest.php'], "'online_ordering_enabled'" ) !== false,
+    'Store returns Bridge schema fields' => strpos( $source['includes/class-cafeflo-rest.php'], "'bridge_connected' => CafeFlo_Orders::bridge_fresh()" ) !== false && strpos( $source['includes/class-cafeflo-rest.php'], "'catalog_revision'" ) !== false && strpos( $source['includes/class-cafeflo-rest.php'], "'currency'" ) !== false,
+    'FloCafe source status is canonical' => strpos( $source['includes/class-cafeflo-orders.php'], "flocafe_status" ) !== false && strpos( $source['includes/class-cafeflo-orders.php'], '$aliases' ) !== false,
+    'Atomic claim insert' => strpos( $source['includes/class-cafeflo-orders.php'], 'INSERT IGNORE' ) !== false,
+    'Claim table has Bridge identity' => strpos( $source['includes/class-cafeflo-db.php'], 'bridge_id' ) !== false,
+    'Claim token required for ACK' => strpos( $source['includes/class-cafeflo-orders.php'], 'cafeflo_claim_mismatch' ) !== false,
+    'ACK replay is idempotent' => strpos( $source['includes/class-cafeflo-orders.php'], 'idempotent_replay' ) !== false,
+    'FloCafe order ID identity is checked' => strpos( $source['includes/class-cafeflo-orders.php'], 'cafeflo_order_id_mismatch' ) !== false,
+    'Meaningful status allow-list' => strpos( $source['includes/class-cafeflo-orders.php'], "'preparing'" ) !== false && strpos( $source['includes/class-cafeflo-orders.php'], "'ready'" ) !== false,
+    'Permanent failure refund' => strpos( $source['includes/class-cafeflo-orders.php'], 'wc_create_refund' ) !== false && strpos( $source['includes/class-cafeflo-orders.php'], "'refund_payment' => true" ) !== false,
+    'Refund does not restock' => strpos( $source['includes/class-cafeflo-orders.php'], "'restock_items' => false" ) !== false,
+    'Refund failure goes to hold' => strpos( $source['includes/class-cafeflo-orders.php'], "'on-hold'" ) !== false,
+    'Immutable FloCafe product mapping' => strpos( $source['includes/class-cafeflo-catalog.php'], "get_mapping( 'product'" ) !== false && strpos( $source['includes/class-cafeflo-catalog.php'], '_cafeflo_product_id' ) !== false,
+    'Catalog same-revision recovery' => strpos( $source['includes/class-cafeflo-catalog.php'], 'current_mappings' ) !== false && strpos( $source['includes/class-cafeflo-catalog.php'], 'already_applied' ) !== false,
+    'Full snapshot hides missing products' => strpos( $source['includes/class-cafeflo-catalog.php'], 'deactivate_missing_managed_products' ) !== false,
+    'ACF catalog fields are synchronized' =>
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'price'" ) !== false &&
-        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'description'" ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field(\n            'description'" ) !== false &&
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'available'" ) !== false &&
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'visible'" ) !== false &&
-        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'product_image'" ) !== false,
-    'Featured field is preserved' => strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'featured'" ) === false,
-    'FloCafe product ID meta remains' => strpos( $source['includes/class-cafeflo-catalog.php'], "'_cafeflo_product_id'" ) !== false,
-    'Source-scoped mapping identity remains' =>
-        strpos( $source['includes/class-cafeflo-db.php'], 'source_instance_id' ) !== false &&
-        strpos( $source['includes/class-cafeflo-db.php'], 'UNIQUE KEY entity_map (entity_type, source_instance_id, flocafe_id)' ) !== false,
-    'Product keeps source identity marker' => strpos( $source['includes/class-cafeflo-catalog.php'], "'_cafeflo_source_instance_id'" ) !== false,
-    'Bridge-compatible product mapping alias remains' =>
-        strpos( $source['includes/class-cafeflo-catalog.php'], "'woo_product_id'" ) !== false &&
-        strpos( $source['includes/class-cafeflo-catalog.php'], "'wordpress_product_id'" ) !== false,
-    'Bridge-compatible empty order queue' => strpos( $source['includes/class-cafeflo-orders.php'], 'return array();' ) !== false,
-    'Order compatibility no-op remains' => strpos( $source['includes/class-cafeflo-orders.php'], "'reason' => 'orders_disabled'" ) !== false,
-    'REST order queue is explicitly disabled' => strpos( $source['includes/class-cafeflo-rest.php'], "'orders_enabled' => false" ) !== false,
-    'Catalog snapshot has Bridge fields' =>
-        strpos( $source['includes/class-cafeflo-catalog.php'], "'source_instance_id'" ) !== false &&
-        strpos( $source['includes/class-cafeflo-catalog.php'], "'generated_at'" ) !== false &&
-        strpos( $source['includes/class-cafeflo-catalog.php'], "'full_snapshot' => true" ) !== false,
-    'No runtime WooCommerce class checks' =>
-        strpos( $all_code, "class_exists( 'WooCommerce'" ) === false &&
-        strpos( $all_code, 'WC_' ) === false,
-    'No WooCommerce lifecycle hooks' =>
-        strpos( $all_code, 'woocommerce_' ) === false &&
-        strpos( $all_code, 'wc_get_' ) === false &&
-        strpos( $all_code, 'wc_create_' ) === false,
-    'No WooCommerce admin capability' => strpos( $all_code, 'manage_woocommerce' ) === false,
-    'Price conversion remains configurable' =>
+        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'product_image'" ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'featured'" ) === false,
+    'Product taxonomy is configurable' =>
+        strpos( $source['includes/class-cafeflo-admin.php'], "cafeflo_product_taxonomy" ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'available_taxonomies' ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'self::taxonomy()' ) !== false,
+    'Rial to Toman conversion is configurable' =>
         strpos( $source['includes/class-cafeflo-catalog.php'], 'price_for_website' ) !== false &&
-        strpos( $source['includes/class-cafeflo-catalog.php'], 'price_for_flocafe' ) !== false,
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'price_for_flocafe' ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], "cafeflo_price_rial_to_toman" ) !== false &&
+        strpos( $source['includes/class-cafeflo-admin.php'], "cafeflo_price_rial_to_toman" ) !== false,
+    'Website price is converted before ACF and WooCommerce sync' =>
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'self::price_for_website( $data[\'price\'] )' ) !== false,
+    'Woo product price remains available for checkout compatibility' =>
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'set_price( $price )' ) !== false,
+    'Woo inventory quantity is not authoritative' => strpos( $source['includes/class-cafeflo-catalog.php'], 'set_manage_stock( false )' ) !== false,
+    'Checkout freshness gate' => strpos( $source['includes/class-cafeflo-orders.php'], 'cafeflo_bridge_last_heartbeat' ) !== false && strpos( $source['includes/class-cafeflo-orders.php'], 'HEARTBEAT_TTL' ) !== false,
+    'Constant-time bridge auth' => strpos( $source['includes/class-cafeflo-auth.php'], 'hash_equals' ) !== false,
+    'Source instance persisted on heartbeat' => strpos( $source['includes/class-cafeflo-rest.php'], "cafeflo_source_instance_id" ) !== false && strpos( $source['includes/class-cafeflo-rest.php'], "body['bridge_id']" ) !== false,
+    'Source-scoped mapping identity' => strpos( $source['includes/class-cafeflo-db.php'], 'source_instance_id' ) !== false && strpos( $source['includes/class-cafeflo-db.php'], 'UNIQUE KEY entity_map (entity_type, source_instance_id, flocafe_id)' ) !== false,
+    'Source-scoped catalog reconciliation' => substr_count( $source['includes/class-cafeflo-catalog.php'], 'source_instance_id=%s' ) >= 3,
+    'Safe DB upgrade path' => strpos( $source['includes/class-cafeflo-db.php'], 'maybe_upgrade' ) !== false && strpos( $source['cafeflo-connect-wordpress.php'], 'CafeFlo_DB::maybe_upgrade' ) !== false,
 );
 
 $failed = array();

@@ -10,19 +10,22 @@ final class CafeFlo_Auth {
         }
 
         $supplied = '';
-        $headers = array(
-            'x-cafeflo-bridge-key',
-            'x-flocafe-bridge-key',
-            'x-flocafe-integration-key',
-        );
-        foreach ( $headers as $header_name ) {
-            $header = $request->get_header( $header_name );
-            if ( is_string( $header ) && '' !== trim( $header ) ) {
+        $header = $request->get_header( 'x-cafeflo-bridge-key' );
+        if ( is_string( $header ) ) {
+            $supplied = trim( $header );
+        }
+        if ( '' === $supplied ) {
+            $header = $request->get_header( 'x-flocafe-bridge-key' );
+            if ( is_string( $header ) ) {
                 $supplied = trim( $header );
-                break;
             }
         }
-
+        if ( '' === $supplied ) {
+            $header = $request->get_header( 'x-flocafe-integration-key' );
+            if ( is_string( $header ) ) {
+                $supplied = trim( $header );
+            }
+        }
         if ( '' === $supplied ) {
             $auth = $request->get_header( 'authorization' );
             if ( is_string( $auth ) && preg_match( '/^Bearer\s+(.+)$/i', $auth, $matches ) ) {
@@ -38,7 +41,7 @@ final class CafeFlo_Auth {
     }
 
     public static function admin_only() {
-        if ( current_user_can( 'manage_options' ) ) {
+        if ( current_user_can( 'manage_woocommerce' ) || current_user_can( 'manage_options' ) ) {
             return true;
         }
         return new WP_Error( 'cafeflo_forbidden', 'Administrator permission required.', array( 'status' => 403 ) );
