@@ -51,6 +51,10 @@ $checks = array(
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'visible'" ) !== false &&
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'product_image'" ) !== false &&
         strpos( $source['includes/class-cafeflo-catalog.php'], "update_field( 'featured'" ) === false,
+    'Product taxonomy is configurable' =>
+        strpos( $source['includes/class-cafeflo-admin.php'], "cafeflo_product_taxonomy" ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'available_taxonomies' ) !== false &&
+        strpos( $source['includes/class-cafeflo-catalog.php'], 'self::taxonomy()' ) !== false,
     'Rial to Toman conversion is configurable' =>
         strpos( $source['includes/class-cafeflo-catalog.php'], 'price_for_website' ) !== false &&
         strpos( $source['includes/class-cafeflo-catalog.php'], 'price_for_flocafe' ) !== false &&
