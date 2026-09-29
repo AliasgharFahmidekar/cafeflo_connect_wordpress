@@ -41,7 +41,7 @@ $checks = array(
     'Source-scoped mapping identity remains' =>
         strpos( $source['includes/class-cafeflo-db.php'], 'source_instance_id' ) !== false &&
         strpos( $source['includes/class-cafeflo-db.php'], 'UNIQUE KEY entity_map (entity_type, source_instance_id, flocafe_id)' ) !== false,
-    'Mapping can recover by immutable ID' => strpos( $source['includes/class-cafeflo-catalog.php'], 'find_product_by_flocafe_id' ) !== false,
+    'Product keeps source identity marker' => strpos( $source['includes/class-cafeflo-catalog.php'], "'_cafeflo_source_instance_id'" ) !== false,
     'Bridge-compatible product mapping alias remains' =>
         strpos( $source['includes/class-cafeflo-catalog.php'], "'woo_product_id'" ) !== false &&
         strpos( $source['includes/class-cafeflo-catalog.php'], "'wordpress_product_id'" ) !== false,
